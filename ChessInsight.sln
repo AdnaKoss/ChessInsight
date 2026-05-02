@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35707.178 d17.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessInsight.Core", "ChessInsight.Core\ChessInsight.Core.csproj", "{D959DCD2-737F-4DEB-92F4-00E3B3F18C96}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessInsight.Engine", "ChessInsight.Engine\ChessInsight.Engine.csproj", "{93E2FE51-0F82-465E-AF5B-7F0C49C23DBE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessInsight.UI", "ChessInsight.UI\ChessInsight.UI.csproj", "{2FD91B11-977D-4163-885F-F72CDCCDCE02}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessInsight.Tests", "ChessInsight.Tests\ChessInsight.Tests.csproj", "{14F5DB26-D420-4A6A-855C-F56B095656EB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D959DCD2-737F-4DEB-92F4-00E3B3F18C96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D959DCD2-737F-4DEB-92F4-00E3B3F18C96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D959DCD2-737F-4DEB-92F4-00E3B3F18C96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D959DCD2-737F-4DEB-92F4-00E3B3F18C96}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93E2FE51-0F82-465E-AF5B-7F0C49C23DBE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93E2FE51-0F82-465E-AF5B-7F0C49C23DBE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93E2FE51-0F82-465E-AF5B-7F0C49C23DBE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93E2FE51-0F82-465E-AF5B-7F0C49C23DBE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2FD91B11-977D-4163-885F-F72CDCCDCE02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2FD91B11-977D-4163-885F-F72CDCCDCE02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2FD91B11-977D-4163-885F-F72CDCCDCE02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2FD91B11-977D-4163-885F-F72CDCCDCE02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{14F5DB26-D420-4A6A-855C-F56B095656EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14F5DB26-D420-4A6A-855C-F56B095656EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14F5DB26-D420-4A6A-855C-F56B095656EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14F5DB26-D420-4A6A-855C-F56B095656EB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
