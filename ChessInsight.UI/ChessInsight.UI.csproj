@@ -1,9 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>ChessInsight</AssemblyName>
+    <RootNamespace>ChessInsight.UI</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,12 +17,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ChessInsight.Core\ChessInsight.Core.csproj" />
     <ProjectReference Include="..\ChessInsight.Engine\ChessInsight.Engine.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Resources\" />
-    <Folder Include="ViewModels\" />
-    <Folder Include="Views\" />
   </ItemGroup>
 
 </Project>

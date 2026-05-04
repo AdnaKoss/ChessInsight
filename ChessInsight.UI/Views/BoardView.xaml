@@ -1,0 +1,64 @@
+<UserControl x:Class="ChessInsight.UI.Views.BoardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border BorderBrush="#555860" BorderThickness="2">
+        <ItemsControl x:Name="BoardGrid"
+                      ItemsSource="{Binding Squares}">
+
+            <!-- UniformGrid 8x8 -->
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Rows="8" Columns="8"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <!-- Svaki ContentPresenter da se rasteže na cijelu ćeliju -->
+            <ItemsControl.ItemContainerStyle>
+                <Style TargetType="ContentPresenter">
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="VerticalAlignment"   Value="Stretch"/>
+                </Style>
+            </ItemsControl.ItemContainerStyle>
+
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Tag="{Binding Index}"
+                            Click="Square_Click"
+                            Cursor="Hand"
+                            Padding="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch">
+
+                        <!-- Custom template — bez default Windows stila dugmeta -->
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="SquareBorder"
+                                        Background="{Binding Background}"
+                                        BorderThickness="0">
+                                    <TextBlock Text="{Binding PieceSymbol}"
+                                               FontFamily="Segoe UI Symbol"
+                                               FontSize="38"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding PieceColor}"
+                                               IsHitTestVisible="False"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="SquareBorder"
+                                                Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="SquareBorder"
+                                                Property="Opacity" Value="0.70"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Border>
+</UserControl>

@@ -23,6 +23,47 @@ namespace ChessInsight.Engine
         private int _nodesSearched;
 
         /// <summary>
+        /// Vraća top N poteza sortiranih po kvalitetu za trenutnog igrača.
+        /// Svaki potez se evaluira s nezavisnim alfa-beta prozorom
+        /// kako bi svi dobili tačan skor (bez root-level pruning artefakata).
+        /// </summary>
+        public List<SearchResult> FindTopMoves(GameState state, int depth, int count)
+        {
+            _nodesSearched = 0;
+
+            var legalMoves = _generator.GetLegalMoves(state);
+            if (legalMoves.Count == 0)
+                return new List<SearchResult>();
+
+            bool isMaximizing = state.CurrentPlayer == PieceColor.White;
+            var scored = new List<(Move move, int score)>();
+
+            foreach (var move in legalMoves)
+            {
+                var newState = state.ApplyMove(move);
+                // Svaki potez dobiva svježi prozor — osigurava tačne skorove za top N
+                int score = Search(newState, depth - 1, !isMaximizing, int.MinValue, int.MaxValue);
+                scored.Add((move, score));
+            }
+
+            // Sortiraj: bijeli maksimizira, crni minimizira
+            scored.Sort(isMaximizing
+                ? (a, b) => b.score.CompareTo(a.score)
+                : (a, b) => a.score.CompareTo(b.score));
+
+            int totalNodes = _nodesSearched;
+            return scored
+                .Take(count)
+                .Select(x => new SearchResult
+                {
+                    BestMove = x.move,
+                    Score = x.score,
+                    NodesSearched = totalNodes
+                })
+                .ToList();
+        }
+
+        /// <summary>
         /// Pronalazi najbolji potez koristeći alfa-beta rezanje.
         /// </summary>
         public SearchResult FindBestMove(GameState state, int depth)
