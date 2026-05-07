@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Windows;
 using System.Windows.Media;
 
 namespace ChessInsight.UI.ViewModels
@@ -28,6 +29,21 @@ namespace ChessInsight.UI.ViewModels
         {
             get => _pieceColor;
             set { _pieceColor = value; OnPropertyChanged(nameof(PieceColor)); }
+        }
+
+        private Uri? _pieceSvgUri;
+        public Uri? PieceSvgUri
+        {
+            get => _pieceSvgUri;
+            set { _pieceSvgUri = value; OnPropertyChanged(nameof(PieceSvgUri)); }
+        }
+
+        // Margin se razlikuje po tipu figure — pješaci su manji
+        private Thickness _pieceMargin = new(6);
+        public Thickness PieceMargin
+        {
+            get => _pieceMargin;
+            set { _pieceMargin = value; OnPropertyChanged(nameof(PieceMargin)); }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

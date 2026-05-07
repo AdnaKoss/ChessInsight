@@ -24,6 +24,10 @@ namespace ChessInsight.UI.ViewModels
 
         [ObservableProperty] private bool _isFlipped = false;
         [ObservableProperty] private bool _isAnalyzing = false;
+        [ObservableProperty] private bool _isAutoAnalyzing = false;
+        [ObservableProperty] private string _analyzeBtnText = "▶  KRENI ANALIZATOR";
+
+        private bool _pendingAnalysis = false;
 
         // ── Panel — evaluacija ───────────────────────────────────
         [ObservableProperty] private string _scoreText = "0.00";
@@ -70,6 +74,10 @@ namespace ChessInsight.UI.ViewModels
         private static readonly Brush BrWhite    = Brushes.WhiteSmoke;
         private static readonly Brush BrBlack    = new SolidColorBrush(Color.FromRgb(0x22, 0x22, 0x22));
 
+        private static readonly System.Windows.Thickness MarginPiece      = new(5);
+        private static readonly System.Windows.Thickness MarginRookKnight = new(8);
+        private static readonly System.Windows.Thickness MarginPawn       = new(9);
+
         // ── Konstruktor ─────────────────────────────────────────
 
         public BoardViewModel()
@@ -84,6 +92,7 @@ namespace ChessInsight.UI.ViewModels
 
         public void LoadFen(string fen)
         {
+            StopAutoAnalysis();
             _gameState = FenParser.Parse(fen);
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
@@ -109,11 +118,19 @@ namespace ChessInsight.UI.ViewModels
                 var piece = _gameState.Board.GetPiece(new Square(r, c));
                 bool isLight = (r + c) % 2 == 1;
 
-                Squares[i].Background  = isLight ? BrLight : BrDark;
-                Squares[i].PieceSymbol = GetSymbol(piece);
-                Squares[i].PieceColor  = piece?.Color == PieceColor.White ? BrWhite : BrBlack;
-                Squares[i].Row         = r;
-                Squares[i].Column      = c;
+                Squares[i].Background   = isLight ? BrLight : BrDark;
+                Squares[i].PieceSymbol  = GetSymbol(piece);
+                Squares[i].PieceColor   = piece?.Color == PieceColor.White ? BrWhite : BrBlack;
+                Squares[i].PieceSvgUri  = GetSvgUri(piece);
+                Squares[i].PieceMargin  = piece?.Type switch
+                {
+                    PieceType.Pawn             => MarginPawn,
+                    PieceType.Rook or
+                    PieceType.Knight           => MarginRookKnight,
+                    _                          => MarginPiece
+                };
+                Squares[i].Row          = r;
+                Squares[i].Column       = c;
             }
 
             GameStatusText = _gameState.Status switch
@@ -178,8 +195,7 @@ namespace ChessInsight.UI.ViewModels
             ClearHighlights();
             SelectPiece(fromVisualIndex, row, col);
 
-            // Sakrij figuru na izvornom polju — vidjet će se samo kao adorner
-            Squares[fromVisualIndex].PieceSymbol = "";
+            // Figura ostaje vidljiva na izvoru — adorner prati kursor kao kopija
         }
 
         /// <summary>Poziva se kad drag završi na validnom cilju.</summary>
@@ -252,6 +268,35 @@ namespace ChessInsight.UI.ViewModels
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
             RefreshBoard();
+
+            if (IsAutoAnalyzing && !IsGameOver)
+            {
+                if (IsAnalyzing)
+                    _pendingAnalysis = true;
+                else
+                    _ = AnalyzeAsync();
+            }
+        }
+
+        // ── Auto-analizator — start/stop toggle ─────────────────
+
+        public void ToggleAutoAnalysis()
+        {
+            if (IsAutoAnalyzing)
+                StopAutoAnalysis();
+            else
+            {
+                IsAutoAnalyzing = true;
+                AnalyzeBtnText  = "■  STOP ANALIZATOR";
+                if (!IsAnalyzing && !IsGameOver)
+                    _ = AnalyzeAsync();
+            }
+        }
+
+        private void StopAutoAnalysis()
+        {
+            IsAutoAnalyzing = false;
+            AnalyzeBtnText  = "▶  KRENI ANALIZATOR";
         }
 
         // ── Historija poteza — snimanje ─────────────────────────
@@ -351,14 +396,29 @@ namespace ChessInsight.UI.ViewModels
         public async Task AnalyzeAsync()
         {
             if (IsAnalyzing) return;
+
+            _pendingAnalysis = false;
             IsAnalyzing = true;
             ClearHighlights();
             _selectedIndex = null;
 
+            // Snapshot — ako potez bude napravljen tokom analize, prepoznajemo staru poziciju
+            var snapshot = _gameState;
+
             var sw = Stopwatch.StartNew();
             var topMoves = await Task.Run(() =>
-                _engine.FindTopMoves(_gameState, AnalysisDepth, 3));
+                _engine.FindTopMoves(snapshot, AnalysisDepth, 3));
             sw.Stop();
+
+            IsAnalyzing = false;
+
+            // Potez napravljen tokom analize — rezultati su za staru poziciju, zanemari ih
+            if (!ReferenceEquals(snapshot, _gameState))
+            {
+                if (_pendingAnalysis && IsAutoAnalyzing && !IsGameOver)
+                    _ = AnalyzeAsync();
+                return;
+            }
 
             DepthText = AnalysisDepth.ToString();
             NodesText = topMoves.Count > 0 ? topMoves[0].NodesSearched.ToString("N0") : "0";
@@ -385,7 +445,7 @@ namespace ChessInsight.UI.ViewModels
             {
                 var r = topMoves[i];
                 if (r.BestMove == null) continue;
-                string mv = FormatMove(r.BestMove);
+                string mv = BuildSan(snapshot, r.BestMove);
                 string sc = FormatScore(r.Score);
                 switch (i)
                 {
@@ -395,13 +455,16 @@ namespace ChessInsight.UI.ViewModels
                 }
             }
 
-            IsAnalyzing = false;
+            // Potez napravljen dok smo ažurirali UI — pokreni ponovo za novu poziciju
+            if (_pendingAnalysis && IsAutoAnalyzing && !IsGameOver)
+                _ = AnalyzeAsync();
         }
 
         // ── Reset ───────────────────────────────────────────────
 
         public void Reset()
         {
+            StopAutoAnalysis();
             _gameState = new GameState();
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
@@ -469,8 +532,49 @@ namespace ChessInsight.UI.ViewModels
 
         // ── Formatiranje (za analitički panel) ─────────────────
 
-        private static string FormatMove(Move move) =>
-            $"{SquareName(move.From)}-{SquareName(move.To)}";
+        private string BuildSan(GameState state, Move move)
+        {
+            if (move.Type == MoveType.CastleKingside)  return "O-O";
+            if (move.Type == MoveType.CastleQueenside) return "O-O-O";
+
+            var piece = state.Board.GetPiece(move.From)!;
+            bool isCapture = move.Type is MoveType.Capture or MoveType.EnPassant;
+            var sb = new StringBuilder();
+
+            if (piece.Type == PieceType.Pawn)
+            {
+                if (isCapture)
+                    sb.Append((char)('a' + move.From.Column)).Append('x');
+                sb.Append(move.To.ToAlgebraic());
+                if (move.PromotionPiece.HasValue)
+                    sb.Append('=').Append(PieceLetter(move.PromotionPiece.Value));
+            }
+            else
+            {
+                sb.Append(PieceLetter(piece.Type));
+
+                var ambiguous = state.Board.GetPieces(piece.Color)
+                    .Where(p => p.Type == piece.Type && !p.Position.Equals(move.From))
+                    .Where(p => _generator.GetLegalMovesForPiece(p, state)
+                                          .Any(m => m.To.Equals(move.To)))
+                    .ToList();
+
+                if (ambiguous.Count > 0)
+                {
+                    bool sameFile = ambiguous.Any(p => p.Position.Column == move.From.Column);
+                    bool sameRank = ambiguous.Any(p => p.Position.Row    == move.From.Row);
+
+                    if (!sameFile)      sb.Append((char)('a' + move.From.Column));
+                    else if (!sameRank) sb.Append(move.From.Row + 1);
+                    else                sb.Append(move.From.ToAlgebraic());
+                }
+
+                if (isCapture) sb.Append('x');
+                sb.Append(move.To.ToAlgebraic());
+            }
+
+            return sb.ToString();
+        }
 
         private static string SquareName(Square sq) =>
             $"{(char)('a' + sq.Column)}{sq.Row + 1}";
@@ -497,6 +601,58 @@ namespace ChessInsight.UI.ViewModels
                 < 600 => $"{side} znatno bolje",
                 _     => $"{side} pobjeđuje"
             };
+        }
+
+        // ── SVG figure ──────────────────────────────────────────
+
+        // Cache: jednom provjeri koje SVG datoteke postoje u Resources/Pieces/
+        private static readonly Dictionary<(PieceColor, PieceType), Uri?> _svgCache = BuildSvgCache();
+
+        private static Dictionary<(PieceColor, PieceType), Uri?> BuildSvgCache()
+        {
+            var cache = new Dictionary<(PieceColor, PieceType), Uri?>();
+            var colors = new[] { PieceColor.White, PieceColor.Black };
+            var types  = new[] { PieceType.King, PieceType.Queen, PieceType.Rook,
+                                  PieceType.Bishop, PieceType.Knight, PieceType.Pawn };
+
+            foreach (var color in colors)
+            foreach (var type in types)
+            {
+                string c = color == PieceColor.White ? "w" : "b";
+                string t = type switch
+                {
+                    PieceType.King   => "K",
+                    PieceType.Queen  => "Q",
+                    PieceType.Rook   => "R",
+                    PieceType.Bishop => "B",
+                    PieceType.Knight => "N",
+                    PieceType.Pawn   => "P",
+                    _                => ""
+                };
+
+                var packUri = new Uri(
+                    $"pack://application:,,,/ChessInsight;component/Resources/Pieces/{c}{t}.svg",
+                    UriKind.Absolute);
+
+                try
+                {
+                    System.Windows.Application.GetResourceStream(packUri);
+                    cache[(color, type)] = packUri;
+                }
+                catch
+                {
+                    cache[(color, type)] = null; // fajl ne postoji — koristit će se unicode
+                }
+            }
+
+            return cache;
+        }
+
+        private static Uri? GetSvgUri(Piece? piece)
+        {
+            if (piece == null) return null;
+            _svgCache.TryGetValue((piece.Color, piece.Type), out var uri);
+            return uri;
         }
 
         // ── Unicode figure ──────────────────────────────────────

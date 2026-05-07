@@ -28,12 +28,8 @@ namespace ChessInsight.UI
                 Dispatcher.BeginInvoke(() => MoveHistoryScroller.ScrollToEnd());
         }
 
-        private async void BtnAnalyze_Click(object sender, RoutedEventArgs e)
-        {
-            BtnAnalyze.IsEnabled = false;
-            await _vm.AnalyzeAsync();
-            BtnAnalyze.IsEnabled = true;
-        }
+        private void BtnAnalyze_Click(object sender, RoutedEventArgs e) =>
+            _vm.ToggleAutoAnalysis();
 
         private void BtnLoadFen_Click(object sender, RoutedEventArgs e)
         {

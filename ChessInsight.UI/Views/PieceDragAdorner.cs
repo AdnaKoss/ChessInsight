@@ -1,5 +1,6 @@
-using System.Globalization;
+using SharpVectors.Converters;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 
@@ -7,50 +8,54 @@ namespace ChessInsight.UI.Views
 {
     internal class PieceDragAdorner : Adorner
     {
-        private readonly string _symbol;
-        private readonly Brush _foreground;
+        private readonly FrameworkElement _child;
         private Point _position;
-        private const double FontSize = 46;
+        private readonly double _size;
 
-        public PieceDragAdorner(UIElement adornedElement, string symbol, Brush foreground, Point startPos)
+        public PieceDragAdorner(UIElement adornedElement, Uri svgUri, Point startPos, double size = 46)
             : base(adornedElement)
         {
-            _symbol    = symbol;
-            _foreground = foreground;
-            _position  = startPos;
+            _position = startPos;
+            _size     = size;
             IsHitTestVisible = false;
+
+            _child = new SvgViewbox
+            {
+                Source           = svgUri,
+                Width            = size,
+                Height           = size,
+                Stretch          = Stretch.Uniform,
+                IsHitTestVisible = false,
+                Opacity          = 0.92
+            };
+
+            AddVisualChild(_child);
+            AddLogicalChild(_child);
         }
 
         public void UpdatePosition(Point pos)
         {
             _position = pos;
-            InvalidateVisual();
+            InvalidateArrange();
         }
 
-        protected override void OnRender(DrawingContext dc)
+        protected override int VisualChildrenCount => 1;
+        protected override Visual GetVisualChild(int index) => _child;
+
+        protected override Size MeasureOverride(Size constraint)
         {
-            var typeface = new Typeface(
-                new FontFamily("Segoe UI Symbol"),
-                FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            _child.Measure(new Size(_size, _size));
+            return constraint;
+        }
 
-            double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-
-            var shadow = new FormattedText(
-                _symbol, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                typeface, FontSize,
-                new SolidColorBrush(Color.FromArgb(90, 0, 0, 0)), dpi);
-
-            var text = new FormattedText(
-                _symbol, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                typeface, FontSize, _foreground, dpi);
-
-            double cx = _position.X - text.Width  / 2;
-            double cy = _position.Y - text.Height / 2;
-
-            dc.PushOpacity(0.88);
-            dc.DrawText(shadow, new Point(cx + 2, cy + 2));
-            dc.DrawText(text,   new Point(cx, cy));
-            dc.Pop();
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            _child.Arrange(new Rect(
+                _position.X - _size / 2,
+                _position.Y - _size / 2,
+                _size,
+                _size));
+            return finalSize;
         }
     }
 }

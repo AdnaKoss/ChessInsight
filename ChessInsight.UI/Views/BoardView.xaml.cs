@@ -98,13 +98,14 @@ namespace ChessInsight.UI.Views
 
         private void ShowAdorner(int sourceIndex, Point pos, BoardViewModel vm)
         {
-            var sq = vm.Squares[sourceIndex];
-            if (string.IsNullOrEmpty(sq.PieceSymbol)) return;
+            var sq  = vm.Squares[sourceIndex];
+            var uri = sq.PieceSvgUri;
+            if (uri == null) return;
 
             var layer = AdornerLayer.GetAdornerLayer(this);
             if (layer == null) return;
 
-            _adorner = new PieceDragAdorner(this, sq.PieceSymbol, sq.PieceColor, pos);
+            _adorner = new PieceDragAdorner(this, uri, pos);
             layer.Add(_adorner);
         }
 

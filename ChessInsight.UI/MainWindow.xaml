@@ -49,57 +49,61 @@
                 <ColumnDefinition Width="290"/>
             </Grid.ColumnDefinitions>
 
-            <!-- ── Lijevo: šahovska tabla ─────────────────────── -->
-            <Grid Grid.Column="0" Margin="16">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <!-- Oznake kolona (a-h) -->
-                    <RowDefinition Height="20"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <!-- Oznake redova (1-8) -->
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+            <!-- ── Lijevo: šahovska tabla (Viewbox čuva omjer 1:1) ── -->
+            <Viewbox Grid.Column="0"
+                     Stretch="Uniform"
+                     Margin="16"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center">
+                <!-- Fiksna unutarnja veličina — Viewbox skalira proporcionalno -->
+                <Grid Width="520" Height="520">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="500"/>
+                        <RowDefinition Height="20"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="500"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- Oznake redova — dinamične (okreću se pri flipu) -->
-                <ItemsControl Grid.Row="0" Grid.Column="0"
-                              ItemsSource="{Binding RowLabels}"
-                              VerticalAlignment="Stretch">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="1" Rows="8"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"
-                                       Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    <!-- Oznake redova — dinamične (okreću se pri flipu) -->
+                    <ItemsControl Grid.Row="0" Grid.Column="0"
+                                  ItemsSource="{Binding RowLabels}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="1" Rows="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                <!-- Šahovska tabla -->
-                <views:BoardView Grid.Row="0" Grid.Column="1"/>
+                    <!-- Šahovska tabla -->
+                    <views:BoardView Grid.Row="0" Grid.Column="1"/>
 
-                <!-- Oznake kolona — dinamične (okreću se pri flipu) -->
-                <ItemsControl Grid.Row="1" Grid.Column="1"
-                              ItemsSource="{Binding ColLabels}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Rows="1" Columns="8"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"
-                                       Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                       HorizontalAlignment="Center"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Grid>
+                    <!-- Oznake kolona — dinamične (okreću se pri flipu) -->
+                    <ItemsControl Grid.Row="1" Grid.Column="1"
+                                  ItemsSource="{Binding ColLabels}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" Columns="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Viewbox>
 
             <!-- ── Separator ──────────────────────────────────── -->
             <Rectangle Grid.Column="1" Fill="{StaticResource BorderColor}"/>
@@ -237,48 +241,47 @@
 
                     <!-- Statistike -->
                     <Border Grid.Row="2" Background="{StaticResource BgCard}"
-                            Margin="12,10,12,0" CornerRadius="6" Padding="14,12">
+                            Margin="12,8,12,0" CornerRadius="6" Padding="12,8">
                         <StackPanel>
                             <TextBlock Text="STATISTIKE"
                                        Foreground="{StaticResource TextSecondary}"
                                        FontSize="10" FontWeight="Bold"
-                                       Margin="0,0,0,10"/>
+                                       Margin="0,0,0,6"/>
 
-                            <!-- Red statistike -->
-                            <Grid Margin="0,0,0,6">
+                            <Grid Margin="0,0,0,3">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Dubina pretrage"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
                                 <TextBlock Grid.Column="1" x:Name="TxtDepth"
                                            Text="{Binding DepthText}" Foreground="{StaticResource TextPrimary}"
-                                           FontSize="12" FontFamily="Consolas"/>
+                                           FontSize="11" FontFamily="Consolas"/>
                             </Grid>
 
-                            <Grid Margin="0,0,0,6">
+                            <Grid Margin="0,0,0,3">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Pregledani čvorovi"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
                                 <TextBlock Grid.Column="1" x:Name="TxtNodes"
                                            Text="{Binding NodesText}" Foreground="{StaticResource TextPrimary}"
-                                           FontSize="12" FontFamily="Consolas"/>
+                                           FontSize="11" FontFamily="Consolas"/>
                             </Grid>
 
-                            <Grid Margin="0,0,0,6">
+                            <Grid Margin="0,0,0,3">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Vrijeme analize"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
                                 <TextBlock Grid.Column="1" x:Name="TxtTime"
                                            Text="{Binding TimeText}" Foreground="{StaticResource TextPrimary}"
-                                           FontSize="12" FontFamily="Consolas"/>
+                                           FontSize="11" FontFamily="Consolas"/>
                             </Grid>
 
                             <Grid>
@@ -287,17 +290,18 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Algoritam"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
                                 <TextBlock Grid.Column="1" x:Name="TxtAlgorithm"
                                            Text="Alpha-Beta" Foreground="{StaticResource TextPrimary}"
-                                           FontSize="12" FontFamily="Consolas"/>
+                                           FontSize="11" FontFamily="Consolas"/>
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- Istorija poteza -->
                     <Border Grid.Row="3" Background="{StaticResource BgCard}"
-                            Margin="12,10,12,0" CornerRadius="6" Padding="14,10">
+                            Margin="12,8,12,0" CornerRadius="6" Padding="12,10"
+                            MinHeight="120">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -343,14 +347,24 @@
                         </Grid>
                     </Border>
 
-                    <!-- Dugme Analiziraj -->
+                    <!-- Dugme Analizator start/stop -->
                     <Button Grid.Row="4"
                             x:Name="BtnAnalyze"
-                            Content="▶  ANALIZIRAJ"
-                            Style="{StaticResource BtnAnalyze}"
-                            Margin="12,14,12,14"
+                            Content="{Binding AnalyzeBtnText}"
+                            Margin="12,10,12,12"
                             Height="42"
-                            Click="BtnAnalyze_Click"/>
+                            Click="BtnAnalyze_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource BtnAnalyze}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAutoAnalyzing}" Value="True">
+                                        <Setter Property="Background" Value="#8B1A1A"/>
+                                        <Setter Property="BorderBrush" Value="#C0392B"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </Grid>
             </Border>
         </Grid>

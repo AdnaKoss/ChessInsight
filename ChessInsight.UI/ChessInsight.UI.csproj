@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -12,11 +12,20 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="SharpVectors.Reloaded" Version="1.8.5" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ChessInsight.Core\ChessInsight.Core.csproj" />
     <ProjectReference Include="..\ChessInsight.Engine\ChessInsight.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\Pieces\**\*.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Resources\Pieces\" />
   </ItemGroup>
 
 </Project>
