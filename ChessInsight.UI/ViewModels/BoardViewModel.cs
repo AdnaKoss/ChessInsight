@@ -148,29 +148,8 @@ namespace ChessInsight.UI.ViewModels
 
                 if (legalMove != null)
                 {
-                    // Promocija — pitaj korisnika
-                    if (legalMove.Type == MoveType.PawnPromotion)
-                    {
-                        var chosen = PromotionRequired?.Invoke(_gameState.CurrentPlayer) ?? PieceType.Queen;
-                        legalMove = _selectedPieceMoves.First(m =>
-                            m.To.Row == clickRow && m.To.Column == clickCol &&
-                            m.Type == MoveType.PawnPromotion &&
-                            m.PromotionPiece == chosen);
-                    }
-
-                    var stateBefore = _gameState;
-                    _gameState = _gameState.ApplyMove(legalMove);
-
-                    var nextMoves = _generator.GetLegalMoves(_gameState);
-                    _gameState.UpdateStatus(nextMoves);
-
-                    // Snimi potez u historiju (status mora biti ažuriran za +/#)
-                    string notation = FormatMoveNotation(stateBefore, legalMove);
-                    RecordMove(notation, stateBefore.CurrentPlayer, stateBefore.FullMoveNumber);
-
-                    _selectedIndex = null;
-                    _selectedPieceMoves.Clear();
-                    RefreshBoard();
+                    legalMove = ResolvePromotion(legalMove, clickRow, clickCol);
+                    CommitMove(legalMove);
                     return;
                 }
 
@@ -182,18 +161,97 @@ namespace ChessInsight.UI.ViewModels
             }
 
             if (piece != null && piece.Color == _gameState.CurrentPlayer)
+                SelectPiece(visualIndex, clickRow, clickCol);
+        }
+
+        // ── Drag — API za BoardView ──────────────────────────────
+
+        /// <summary>Poziva se kad drag počne — selektuje figuru i highlightuje legalne poteze.</summary>
+        public void OnDragStart(int fromVisualIndex)
+        {
+            if (IsGameOver || IsAnalyzing) return;
+
+            var (row, col) = ToBoardCoords(fromVisualIndex);
+            var piece = _gameState.Board.GetPiece(new Square(row, col));
+            if (piece == null || piece.Color != _gameState.CurrentPlayer) return;
+
+            ClearHighlights();
+            SelectPiece(fromVisualIndex, row, col);
+
+            // Sakrij figuru na izvornom polju — vidjet će se samo kao adorner
+            Squares[fromVisualIndex].PieceSymbol = "";
+        }
+
+        /// <summary>Poziva se kad drag završi na validnom cilju.</summary>
+        public void TryApplyDragMove(int fromVisualIndex, int toVisualIndex)
+        {
+            if (IsGameOver || IsAnalyzing) return;
+
+            var (toRow, toCol) = ToBoardCoords(toVisualIndex);
+
+            var legalMove = _selectedPieceMoves.FirstOrDefault(m =>
+                m.To.Row == toRow && m.To.Column == toCol);
+
+            if (legalMove != null)
             {
-                _selectedIndex = visualIndex;
-                Squares[visualIndex].Background = BrSelected;
-
-                var allMoves = _generator.GetLegalMoves(_gameState);
-                _selectedPieceMoves = allMoves
-                    .Where(m => m.From.Row == clickRow && m.From.Column == clickCol)
-                    .ToList();
-
-                foreach (var m in _selectedPieceMoves)
-                    Squares[ToVisualIndex(m.To.Row, m.To.Column)].Background = BrLegal;
+                legalMove = ResolvePromotion(legalMove, toRow, toCol);
+                CommitMove(legalMove);
             }
+            else
+            {
+                CancelDrag();
+            }
+        }
+
+        /// <summary>Poziva se kad drag završi na nevalidnom polju — vraća stanje.</summary>
+        public void CancelDrag()
+        {
+            _selectedIndex = null;
+            _selectedPieceMoves.Clear();
+            RefreshBoard();  // Vraća originalnu figuru i briše highlighte
+        }
+
+        // ── Zajednički interna logika ────────────────────────────
+
+        private void SelectPiece(int visualIndex, int row, int col)
+        {
+            _selectedIndex = visualIndex;
+            Squares[visualIndex].Background = BrSelected;
+
+            var allMoves = _generator.GetLegalMoves(_gameState);
+            _selectedPieceMoves = allMoves
+                .Where(m => m.From.Row == row && m.From.Column == col)
+                .ToList();
+
+            foreach (var m in _selectedPieceMoves)
+                Squares[ToVisualIndex(m.To.Row, m.To.Column)].Background = BrLegal;
+        }
+
+        private Move ResolvePromotion(Move move, int toRow, int toCol)
+        {
+            if (move.Type != MoveType.PawnPromotion) return move;
+
+            var chosen = PromotionRequired?.Invoke(_gameState.CurrentPlayer) ?? PieceType.Queen;
+            return _selectedPieceMoves.First(m =>
+                m.To.Row == toRow && m.To.Column == toCol &&
+                m.Type == MoveType.PawnPromotion &&
+                m.PromotionPiece == chosen);
+        }
+
+        private void CommitMove(Move move)
+        {
+            var stateBefore = _gameState;
+            _gameState = _gameState.ApplyMove(move);
+
+            var nextMoves = _generator.GetLegalMoves(_gameState);
+            _gameState.UpdateStatus(nextMoves);
+
+            string notation = FormatMoveNotation(stateBefore, move);
+            RecordMove(notation, stateBefore.CurrentPlayer, stateBefore.FullMoveNumber);
+
+            _selectedIndex = null;
+            _selectedPieceMoves.Clear();
+            RefreshBoard();
         }
 
         // ── Historija poteza — snimanje ─────────────────────────
