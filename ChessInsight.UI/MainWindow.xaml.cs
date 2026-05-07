@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Input;
+using ChessInsight.Core.Enums;
 using ChessInsight.UI.ViewModels;
+using ChessInsight.UI.Views;
 
 namespace ChessInsight.UI
 {
@@ -12,6 +14,18 @@ namespace ChessInsight.UI
         {
             InitializeComponent();
             DataContext = _vm;
+
+            // Kad pješak stigne na zadnji red, otvori dijalog za izbor figure
+            _vm.PromotionRequired += color =>
+            {
+                var dialog = new PromotionDialog(color) { Owner = this };
+                dialog.ShowDialog();
+                return dialog.SelectedPiece;
+            };
+
+            // Auto-scroll istorije poteza na najnoviji potez
+            _vm.MoveHistory.CollectionChanged += (_, _) =>
+                Dispatcher.BeginInvoke(() => MoveHistoryScroller.ScrollToEnd());
         }
 
         private async void BtnAnalyze_Click(object sender, RoutedEventArgs e)
@@ -23,7 +37,18 @@ namespace ChessInsight.UI
 
         private void BtnLoadFen_Click(object sender, RoutedEventArgs e)
         {
-            // FEN parser — dolazi u sljedećem koraku
+            try
+            {
+                _vm.LoadFen(TxtFen.Text.Trim());
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show(
+                    $"Nevažeći FEN string:\n\n{ex.Message}",
+                    "Greška pri učitavanju",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
         }
 
         private void TxtFen_KeyDown(object sender, KeyEventArgs e)

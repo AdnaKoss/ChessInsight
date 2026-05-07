@@ -216,6 +216,15 @@ namespace ChessInsight.Core.Models
             CurrentPlayer = currentPlayer;
             Status = GameStatus.Active;
         }
+        // ── Factory za FEN ───────────────────────────────────────
+
+        public static GameState FromFen(Board board, PieceColor currentPlayer,
+            bool wCK, bool wCQ, bool bCK, bool bCQ, int halfMove, int fullMove)
+        {
+            return new GameState(board, currentPlayer, GameStatus.Active,
+                wCK, wCQ, bCK, bCQ, halfMove, fullMove);
+        }
+
         // ── Helper ───────────────────────────────────────────────
 
         public static PieceColor Opponent(PieceColor color) =>
