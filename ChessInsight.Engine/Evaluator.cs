@@ -1,9 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using ChessInsight.Core.Enums;
 using ChessInsight.Core.Models;
 
@@ -11,25 +5,25 @@ namespace ChessInsight.Engine
 {
     /// <summary>
     /// Heuristička evaluacija šahovske pozicije.
-    /// Pozitivan skor = prednost bijelog.
-    /// Negativan skor = prednost crnog.
+    /// Pozitivan skor = prednost bijelog, negativan = prednost crnog.
     /// </summary>
     public class Evaluator
     {
-        // ── Materijalne vrijednosti figura ───────────────────────
-        private static readonly Dictionary<PieceType, int> PieceValues = new()
+        // ── Materijalne vrijednosti ──────────────────────────────
+        internal static readonly Dictionary<PieceType, int> PieceValues = new()
         {
-            { PieceType.Pawn,   100  },
-            { PieceType.Knight, 320  },
-            { PieceType.Bishop, 330  },
-            { PieceType.Rook,   500  },
-            { PieceType.Queen,  900  },
-            { PieceType.King,   20000}
+            { PieceType.Pawn,   100   },
+            { PieceType.Knight, 320   },
+            { PieceType.Bishop, 330   },
+            { PieceType.Rook,   500   },
+            { PieceType.Queen,  900   },
+            { PieceType.King,   20000 }
         };
 
-        // ── Piece-square tablice ─────────────────────────────────
-        // Bonus/malus za poziciju figure na određenom polju.
-        // Indeksirano [red, kolona] iz perspektive bijelog (red 0 = bijela strana).
+        // ── PST tablice ──────────────────────────────────────────
+        // Indeksiranje: row 0 = rank 8 (crna strana), row 7 = rank 1 (bijela strana).
+        // Za bijele figure: tableRow = 7 - piece.Position.Row
+        // Za crne figure:   tableRow = piece.Position.Row
 
         private static readonly int[,] PawnTable = {
             {  0,  0,  0,  0,  0,  0,  0,  0 },
@@ -75,14 +69,15 @@ namespace ChessInsight.Engine
             {  0,  0,  0,  5,  5,  0,  0,  0 }
         };
 
+        // Popravljena tablica — bila asimetrična u redovima 4-6
         private static readonly int[,] QueenTable = {
             { -20,-10,-10, -5, -5,-10,-10,-20 },
             { -10,  0,  0,  0,  0,  0,  0,-10 },
             { -10,  0,  5,  5,  5,  5,  0,-10 },
             {  -5,  0,  5,  5,  5,  5,  0, -5 },
-            {   0,  0,  5,  5,  5,  5,  0, -5 },
-            { -10,  5,  5,  5,  5,  5,  0,-10 },
-            { -10,  0,  5,  0,  0,  0,  0,-10 },
+            {  -5,  0,  5,  5,  5,  5,  0, -5 },
+            { -10,  0,  5,  5,  5,  5,  0,-10 },
+            { -10,  0,  0,  0,  0,  0,  0,-10 },
             { -20,-10,-10, -5, -5,-10,-10,-20 }
         };
 
@@ -97,54 +92,121 @@ namespace ChessInsight.Engine
             {  20, 30, 10,  0,  0, 10, 30, 20 }
         };
 
+        // Bonus za prolaznog pješaka po ranku (0 = vlastita strana, 7 = promocija)
+        private static readonly int[] PassedPawnBonus = { 0, 10, 20, 35, 55, 80, 120, 0 };
+
         // ── Glavna evaluacijska funkcija ─────────────────────────
 
-        /// <summary>
-        /// Evaluira poziciju i vraća skor.
-        /// Pozitivan = bijeli bolje, negativan = crni bolje.
-        /// </summary>
         public int Evaluate(GameState state)
         {
             int score = 0;
+            var whitePawns = new List<Piece>(8);
+            var blackPawns = new List<Piece>(8);
 
             foreach (var piece in state.Board.GetAllPieces())
             {
-                int value = GetMaterialValue(piece);
-                int position = GetPositionBonus(piece);
-                int total = value + position;
+                int val = PieceValues[piece.Type] + GetPositionBonus(piece);
 
-                score += piece.Color == PieceColor.White ? +total : -total;
+                if (piece.Color == PieceColor.White)
+                {
+                    score += val;
+                    if (piece.Type == PieceType.Pawn) whitePawns.Add(piece);
+                }
+                else
+                {
+                    score -= val;
+                    if (piece.Type == PieceType.Pawn) blackPawns.Add(piece);
+                }
+            }
+
+            score += EvaluatePawnStructure(whitePawns, blackPawns);
+
+            return score;
+        }
+
+        // ── Pozicijski bonus (PST) ────────────────────────────────
+
+        private int GetPositionBonus(Piece piece)
+        {
+            // Ispravno indeksiranje:
+            // Row 0 = rank 1 (bijela strana) u našem koordinatnom sistemu
+            // PST row 0 = rank 8 (crna strana) — zato invertujemo za bijelog
+            int row = piece.Color == PieceColor.White
+                ? 7 - piece.Position.Row
+                : piece.Position.Row;
+            int col = piece.Position.Column;
+
+            return piece.Type switch
+            {
+                PieceType.Pawn   => PawnTable[row, col],
+                PieceType.Knight => KnightTable[row, col],
+                PieceType.Bishop => BishopTable[row, col],
+                PieceType.Rook   => RookTable[row, col],
+                PieceType.Queen  => QueenTable[row, col],
+                PieceType.King   => KingTable[row, col],
+                _                => 0
+            };
+        }
+
+        // ── Pawn structure ────────────────────────────────────────
+
+        private int EvaluatePawnStructure(List<Piece> whitePawns, List<Piece> blackPawns)
+        {
+            int score = 0;
+            score += ScorePawns(whitePawns, blackPawns, PieceColor.White);
+            score -= ScorePawns(blackPawns, whitePawns, PieceColor.Black);
+            return score;
+        }
+
+        private int ScorePawns(List<Piece> own, List<Piece> enemy, PieceColor color)
+        {
+            if (own.Count == 0) return 0;
+
+            int score = 0;
+            var perFile = new int[8];
+            foreach (var p in own) perFile[p.Position.Column]++;
+
+            foreach (var pawn in own)
+            {
+                int col = pawn.Position.Column;
+
+                // Dvostruki pješak
+                if (perFile[col] > 1) score -= 20;
+
+                // Izolirani pješak
+                bool hasNeighbour = (col > 0 && perFile[col - 1] > 0) ||
+                                    (col < 7 && perFile[col + 1] > 0);
+                if (!hasNeighbour) score -= 15;
+
+                // Prolazni pješak — veći bonus što je dalje odmakao
+                if (IsPassedPawn(pawn, enemy, color))
+                {
+                    int rank = color == PieceColor.White
+                        ? pawn.Position.Row
+                        : 7 - pawn.Position.Row;
+                    score += PassedPawnBonus[rank];
+                }
             }
 
             return score;
         }
 
-        // ── Materijalna vrijednost ────────────────────────────────
-
-        private int GetMaterialValue(Piece piece) =>
-            PieceValues.TryGetValue(piece.Type, out int val) ? val : 0;
-
-        // ── Pozicijski bonus ─────────────────────────────────────
-
-        private int GetPositionBonus(Piece piece)
+        private static bool IsPassedPawn(Piece pawn, List<Piece> enemyPawns, PieceColor color)
         {
-            // Za crnog invertujemo red — tablica je iz perspektive bijelog
-            int row = piece.Color == PieceColor.White
-                ? piece.Position.Row
-                : 7 - piece.Position.Row;
+            int col = pawn.Position.Column;
+            int row = pawn.Position.Row;
 
-            int col = piece.Position.Column;
-
-            return piece.Type switch
+            foreach (var ep in enemyPawns)
             {
-                PieceType.Pawn => PawnTable[row, col],
-                PieceType.Knight => KnightTable[row, col],
-                PieceType.Bishop => BishopTable[row, col],
-                PieceType.Rook => RookTable[row, col],
-                PieceType.Queen => QueenTable[row, col],
-                PieceType.King => KingTable[row, col],
-                _ => 0
-            };
+                if (ep.Position.Column < col - 1 || ep.Position.Column > col + 1) continue;
+
+                // Neprijateljski pješak ispred blokira prolaz
+                if (color == PieceColor.White && ep.Position.Row > row) return false;
+                if (color == PieceColor.Black && ep.Position.Row < row) return false;
+            }
+
+            return true;
         }
+
     }
 }

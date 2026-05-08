@@ -23,9 +23,9 @@ namespace ChessInsight.UI
                 return dialog.SelectedPiece;
             };
 
-            // Auto-scroll istorije poteza na najnoviji potez
+            // Skroluj na vrh kad se historija promijeni (najnoviji potez je uvijek gore)
             _vm.MoveHistory.CollectionChanged += (_, _) =>
-                Dispatcher.BeginInvoke(() => MoveHistoryScroller.ScrollToEnd());
+                Dispatcher.BeginInvoke(() => MoveHistoryScroller.ScrollToTop());
         }
 
         private void BtnAnalyze_Click(object sender, RoutedEventArgs e) =>
@@ -51,6 +51,21 @@ namespace ChessInsight.UI
         {
             if (e.Key == Key.Enter)
                 BtnLoadFen_Click(sender, e);
+        }
+
+        private void BtnBack_Click(object sender, RoutedEventArgs e) =>
+            _vm.GoBack();
+
+        private void BtnForward_Click(object sender, RoutedEventArgs e) =>
+            _vm.GoForward();
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            // Ignoriši dok je FEN TextBox fokusiran
+            if (TxtFen.IsFocused) return;
+
+            if (e.Key == Key.Left)  { _vm.GoBack();    e.Handled = true; }
+            if (e.Key == Key.Right) { _vm.GoForward(); e.Handled = true; }
         }
 
         private void BtnFlip_Click(object sender, RoutedEventArgs e) =>

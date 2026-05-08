@@ -6,7 +6,8 @@
         Width="1050" Height="750"
         MinWidth="850" MinHeight="650"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgApp}">
+        Background="{StaticResource BgApp}"
+        KeyDown="Window_KeyDown">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -113,6 +114,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>  <!-- Evaluacija -->
+                        <RowDefinition Height="Auto"/>  <!-- Loading indicator -->
                         <RowDefinition Height="Auto"/>  <!-- Top 3 poteza -->
                         <RowDefinition Height="Auto"/>  <!-- Statistike -->
                         <RowDefinition Height="*"/>     <!-- Istorija poteza -->
@@ -147,8 +149,26 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Loading indicator — vidljiv samo tokom analize -->
+                    <Border Grid.Row="1"
+                            Margin="12,6,12,0"
+                            Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="3"
+                                         Foreground="{StaticResource MoveColorBest}"
+                                         Background="Transparent"
+                                         BorderThickness="0"/>
+                            <TextBlock Text="{Binding AnalyzingText}"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       FontSize="10"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Top 3 poteza -->
-                    <Border Grid.Row="1" Background="{StaticResource BgCard}"
+                    <Border Grid.Row="2" Background="{StaticResource BgCard}"
                             Margin="12,10,12,0" CornerRadius="6" Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="TOP 3 POTEZA"
@@ -240,7 +260,7 @@
                     </Border>
 
                     <!-- Statistike -->
-                    <Border Grid.Row="2" Background="{StaticResource BgCard}"
+                    <Border Grid.Row="3" Background="{StaticResource BgCard}"
                             Margin="12,8,12,0" CornerRadius="6" Padding="12,8">
                         <StackPanel>
                             <TextBlock Text="STATISTIKE"
@@ -299,7 +319,7 @@
                     </Border>
 
                     <!-- Istorija poteza -->
-                    <Border Grid.Row="3" Background="{StaticResource BgCard}"
+                    <Border Grid.Row="4" Background="{StaticResource BgCard}"
                             Margin="12,8,12,0" CornerRadius="6" Padding="12,10"
                             MinHeight="120">
                         <Grid>
@@ -348,7 +368,7 @@
                     </Border>
 
                     <!-- Dugme Analizator start/stop -->
-                    <Button Grid.Row="4"
+                    <Button Grid.Row="5"
                             x:Name="BtnAnalyze"
                             Content="{Binding AnalyzeBtnText}"
                             Margin="12,10,12,12"
@@ -410,6 +430,20 @@
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
                         Margin="12,0">
+                <Button x:Name="BtnBack"
+                        Content="◀  Nazad"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnBack_Click"
+                        IsEnabled="{Binding CanGoBack}"
+                        ToolTip="Vrati jedan potez unazad"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="BtnForward"
+                        Content="Naprijed  ▶"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnForward_Click"
+                        IsEnabled="{Binding CanGoForward}"
+                        ToolTip="Idi jedan potez naprijed"
+                        Margin="0,0,16,0"/>
                 <Button x:Name="BtnFlip"
                         Content="⟳  Okreni Ploču"
                         Style="{StaticResource BtnBase}"

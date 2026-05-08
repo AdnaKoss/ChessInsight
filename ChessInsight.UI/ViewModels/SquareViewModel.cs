@@ -38,12 +38,25 @@ namespace ChessInsight.UI.ViewModels
             set { _pieceSvgUri = value; OnPropertyChanged(nameof(PieceSvgUri)); }
         }
 
-        // Margin se razlikuje po tipu figure — pješaci su manji
         private Thickness _pieceMargin = new(6);
         public Thickness PieceMargin
         {
             get => _pieceMargin;
             set { _pieceMargin = value; OnPropertyChanged(nameof(PieceMargin)); }
+        }
+
+        private bool _isLegalMove;
+        public bool IsLegalMove
+        {
+            get => _isLegalMove;
+            set { _isLegalMove = value; OnPropertyChanged(nameof(IsLegalMove)); }
+        }
+
+        private bool _isLegalCapture;
+        public bool IsLegalCapture
+        {
+            get => _isLegalCapture;
+            set { _isLegalCapture = value; OnPropertyChanged(nameof(IsLegalCapture)); }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

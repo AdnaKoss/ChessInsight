@@ -6,6 +6,7 @@
     <Application.Resources>
 
         <conv:NullToVisibilityConverter x:Key="NullToVis"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
         <!-- ── Boje ─────────────────────────────────────────────── -->
         <SolidColorBrush x:Key="BgApp"        Color="#2B2D30"/>

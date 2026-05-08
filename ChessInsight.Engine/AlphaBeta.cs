@@ -1,8 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ChessInsight.Core.Engine;
 using ChessInsight.Core.Enums;
 using ChessInsight.Core.Models;
@@ -10,10 +5,7 @@ using ChessInsight.Core.Models;
 namespace ChessInsight.Engine
 {
     /// <summary>
-    /// Minimax s alfa-beta rezanjem.
-    /// Alpha = minimum koji MAX garantovano može postići.
-    /// Beta  = maximum koji MIN garantovano može postići.
-    /// Kada alpha >= beta — granu preskačemo (pruning).
+    /// Minimax s alfa-beta rezanjem, move orderingom i quiescence searchom.
     /// </summary>
     public class AlphaBeta
     {
@@ -22,143 +14,237 @@ namespace ChessInsight.Engine
 
         private int _nodesSearched;
 
+        // ── Root pretrage ────────────────────────────────────────
+
         /// <summary>
-        /// Vraća top N poteza sortiranih po kvalitetu za trenutnog igrača.
-        /// Svaki potez se evaluira s nezavisnim alfa-beta prozorom
-        /// kako bi svi dobili tačan skor (bez root-level pruning artefakata).
+        /// Iterative deepening: pretražuje dubinu 1..maxDepth i izvještava nakon svake.
+        /// Progress callback se poziva na pozivajućem threadu (wrappan u IProgress).
         /// </summary>
+        public List<SearchResult> FindTopMovesIterative(
+            GameState state, int maxDepth, int count,
+            IProgress<(int depth, List<SearchResult> results)>? progress = null)
+        {
+            List<SearchResult> last = new();
+            for (int d = 1; d <= maxDepth; d++)
+            {
+                last = FindTopMoves(state, d, count);
+                progress?.Report((d, last));
+            }
+            return last;
+        }
+
         public List<SearchResult> FindTopMoves(GameState state, int depth, int count)
         {
             _nodesSearched = 0;
 
             var legalMoves = _generator.GetLegalMoves(state);
-            if (legalMoves.Count == 0)
-                return new List<SearchResult>();
+            if (legalMoves.Count == 0) return new List<SearchResult>();
 
-            bool isMaximizing = state.CurrentPlayer == PieceColor.White;
-            var scored = new List<(Move move, int score)>();
+            bool isMax = state.CurrentPlayer == PieceColor.White;
+            var scored = new (Move move, int score)[legalMoves.Count];
+            int idx = 0;
 
-            foreach (var move in legalMoves)
+            foreach (var move in OrderMoves(legalMoves, state.Board))
             {
-                var newState = state.ApplyMove(move);
-                // Svaki potez dobiva svježi prozor — osigurava tačne skorove za top N
-                int score = Search(newState, depth - 1, !isMaximizing, int.MinValue, int.MaxValue);
-                scored.Add((move, score));
+                var next = state.ApplyMove(move);
+                int score = Search(next, depth - 1, !isMax, int.MinValue, int.MaxValue);
+                scored[idx++] = (move, score);
             }
 
-            // Sortiraj: bijeli maksimizira, crni minimizira
-            scored.Sort(isMaximizing
-                ? (a, b) => b.score.CompareTo(a.score)
-                : (a, b) => a.score.CompareTo(b.score));
+            Array.Sort(scored, 0, idx, isMax
+                ? Comparer<(Move, int score)>.Create((a, b) => b.score.CompareTo(a.score))
+                : Comparer<(Move, int score)>.Create((a, b) => a.score.CompareTo(b.score)));
 
             int totalNodes = _nodesSearched;
-            return scored
-                .Take(count)
-                .Select(x => new SearchResult
+            var results = new List<SearchResult>(Math.Min(count, idx));
+            for (int i = 0; i < Math.Min(count, idx); i++)
+                results.Add(new SearchResult
                 {
-                    BestMove = x.move,
-                    Score = x.score,
+                    BestMove      = scored[i].move,
+                    Score         = scored[i].score,
                     NodesSearched = totalNodes
-                })
-                .ToList();
+                });
+            return results;
         }
 
-        /// <summary>
-        /// Pronalazi najbolji potez koristeći alfa-beta rezanje.
-        /// </summary>
         public SearchResult FindBestMove(GameState state, int depth)
         {
             _nodesSearched = 0;
 
             var legalMoves = _generator.GetLegalMoves(state);
+            if (legalMoves.Count == 0) return new SearchResult { Score = 0 };
 
-            if (legalMoves.Count == 0)
-                return new SearchResult { Score = 0 };
-
+            bool isMax = state.CurrentPlayer == PieceColor.White;
             Move? bestMove = null;
-            bool isMaximizing = state.CurrentPlayer == PieceColor.White;
-            int bestScore = isMaximizing ? int.MinValue : int.MaxValue;
+            int bestScore = isMax ? int.MinValue : int.MaxValue;
             int alpha = int.MinValue;
-            int beta = int.MaxValue;
+            int beta  = int.MaxValue;
 
-            foreach (var move in legalMoves)
+            foreach (var move in OrderMoves(legalMoves, state.Board))
             {
-                var newState = state.ApplyMove(move);
-                int score = Search(newState, depth - 1, !isMaximizing, alpha, beta);
+                var next  = state.ApplyMove(move);
+                int score = Search(next, depth - 1, !isMax, alpha, beta);
 
-                if (isMaximizing && score > bestScore ||
-                   !isMaximizing && score < bestScore)
+                if (isMax && score > bestScore || !isMax && score < bestScore)
                 {
                     bestScore = score;
-                    bestMove = move;
+                    bestMove  = move;
                 }
 
-                // Ažuriraj alpha/beta na najvišem nivou
-                if (isMaximizing) alpha = Math.Max(alpha, bestScore);
-                else beta = Math.Min(beta, bestScore);
+                if (isMax) alpha = Math.Max(alpha, bestScore);
+                else       beta  = Math.Min(beta,  bestScore);
             }
 
             return new SearchResult
             {
-                BestMove = bestMove,
-                Score = bestScore,
+                BestMove      = bestMove,
+                Score         = bestScore,
                 NodesSearched = _nodesSearched
             };
         }
 
-        /// <summary>
-        /// Rekurzivna pretraga s alfa-beta rezanjem.
-        /// </summary>
-        private int Search(GameState state, int depth, bool isMaximizing,
-                           int alpha, int beta)
+        // ── Rekurzivna pretraga ──────────────────────────────────
+
+        private int Search(GameState state, int depth, bool isMax, int alpha, int beta)
         {
             _nodesSearched++;
 
             if (depth == 0)
-                return _evaluator.Evaluate(state);
+                return QSearch(state, alpha, beta, isMax);
 
-            var legalMoves = _generator.GetLegalMoves(state);
+            var moves = _generator.GetLegalMoves(state);
 
-            if (legalMoves.Count == 0)
+            if (moves.Count == 0)
             {
                 if (state.IsInCheck(state.CurrentPlayer))
-                    return isMaximizing ? -99999 : +99999;
-                else
-                    return 0;
+                    return isMax ? -99999 : +99999;
+                return 0; // pat
             }
 
-            if (isMaximizing)
+            if (isMax)
             {
-                int maxScore = int.MinValue;
-
-                foreach (var move in legalMoves)
+                int max = int.MinValue;
+                foreach (var move in OrderMoves(moves, state.Board))
                 {
-                    var newState = state.ApplyMove(move);
-                    int score = Search(newState, depth - 1, false, alpha, beta);
-                    maxScore = Math.Max(maxScore, score);
+                    int score = Search(state.ApplyMove(move), depth - 1, false, alpha, beta);
+                    max   = Math.Max(max, score);
                     alpha = Math.Max(alpha, score);
-
-                    // Beta rezanje — MIN već ima bolju opciju, preskoči
                     if (alpha >= beta) break;
                 }
-                return maxScore;
+                return max;
             }
             else
             {
-                int minScore = int.MaxValue;
-
-                foreach (var move in legalMoves)
+                int min = int.MaxValue;
+                foreach (var move in OrderMoves(moves, state.Board))
                 {
-                    var newState = state.ApplyMove(move);
-                    int score = Search(newState, depth - 1, true, alpha, beta);
-                    minScore = Math.Min(minScore, score);
+                    int score = Search(state.ApplyMove(move), depth - 1, true, alpha, beta);
+                    min  = Math.Min(min, score);
                     beta = Math.Min(beta, score);
-
-                    // Alpha rezanje — MAX već ima bolju opciju, preskoči
                     if (alpha >= beta) break;
                 }
-                return minScore;
+                return min;
             }
         }
+
+        // ── Quiescence search ────────────────────────────────────
+        // Nastavlja pretragu samo kroz hvatanja dok se ne dođe do "mirne" pozicije.
+        // Sprečava horizon effect — engine ne može ignorisati hvatanje odmah iza horizonta.
+
+        private int QSearch(GameState state, int alpha, int beta, bool isMax, int qDepth = 0)
+        {
+            _nodesSearched++;
+
+            int standPat = _evaluator.Evaluate(state);
+
+            // Sigurnosni izlaz da se spriječi beskonačna rekurzija
+            if (qDepth >= 6) return standPat;
+
+            if (isMax)
+            {
+                if (standPat >= beta) return beta;
+                alpha = Math.Max(alpha, standPat);
+            }
+            else
+            {
+                if (standPat <= alpha) return alpha;
+                beta = Math.Min(beta, standPat);
+            }
+
+            var captures = _generator.GetLegalMoves(state)
+                .Where(m => m.Type is MoveType.Capture or MoveType.EnPassant or MoveType.PawnPromotion)
+                .ToList();
+
+            if (captures.Count == 0) return standPat;
+
+            captures = OrderMoves(captures, state.Board);
+
+            if (isMax)
+            {
+                int max = standPat;
+                foreach (var move in captures)
+                {
+                    int score = QSearch(state.ApplyMove(move), alpha, beta, false, qDepth + 1);
+                    max   = Math.Max(max, score);
+                    alpha = Math.Max(alpha, score);
+                    if (alpha >= beta) break;
+                }
+                return max;
+            }
+            else
+            {
+                int min = standPat;
+                foreach (var move in captures)
+                {
+                    int score = QSearch(state.ApplyMove(move), alpha, beta, true, qDepth + 1);
+                    min  = Math.Min(min, score);
+                    beta = Math.Min(beta, score);
+                    if (alpha >= beta) break;
+                }
+                return min;
+            }
+        }
+
+        // ── Move ordering (MVV-LVA) ──────────────────────────────
+        // Promocije prvo, zatim hvatanja (MVV-LVA), zatim mirni potezi.
+
+        private static List<Move> OrderMoves(List<Move> moves, Board board)
+        {
+            // Scoring bez LINQ alokacija
+            var buf = new (Move m, int score)[moves.Count];
+            for (int i = 0; i < moves.Count; i++)
+                buf[i] = (moves[i], MoveScore(moves[i], board));
+
+            Array.Sort(buf, (a, b) => b.score.CompareTo(a.score));
+
+            var result = new List<Move>(moves.Count);
+            foreach (var (m, _) in buf) result.Add(m);
+            return result;
+        }
+
+        private static int MoveScore(Move m, Board board)
+        {
+            if (m.Type == MoveType.PawnPromotion) return 30000;
+            if (m.Type is MoveType.Capture or MoveType.EnPassant)
+            {
+                var victim   = board.GetPiece(m.To);
+                var attacker = board.GetPiece(m.From);
+                int victimVal   = victim   != null ? PieceVal(victim.Type)   : 100;
+                int attackerVal = attacker != null ? PieceVal(attacker.Type) : 100;
+                return 10000 + victimVal * 10 - attackerVal;
+            }
+            return 0;
+        }
+
+        private static int PieceVal(PieceType t) => t switch
+        {
+            PieceType.Pawn   => 100,
+            PieceType.Knight => 320,
+            PieceType.Bishop => 330,
+            PieceType.Rook   => 500,
+            PieceType.Queen  => 900,
+            PieceType.King   => 20000,
+            _                => 0
+        };
     }
 }

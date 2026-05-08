@@ -22,10 +22,21 @@ namespace ChessInsight.UI.ViewModels
         private int? _selectedIndex = null;
         private List<Move> _selectedPieceMoves = new();
 
+        // ── Historija za navigaciju ─────────────────────────────
+        // _stateHistory[i] = stanje nakon i poteza (index 0 = početno stanje)
+        // _moveLog[i]      = potez koji vodi iz stanja i u stanje i+1
+        private readonly List<GameState> _stateHistory = new();
+        private readonly List<(Move move, string san, PieceColor player, int moveNum)> _moveLog = new();
+        private int _viewIndex = 0;
+
+        [ObservableProperty] private bool _canGoBack    = false;
+        [ObservableProperty] private bool _canGoForward = false;
+
         [ObservableProperty] private bool _isFlipped = false;
         [ObservableProperty] private bool _isAnalyzing = false;
         [ObservableProperty] private bool _isAutoAnalyzing = false;
         [ObservableProperty] private string _analyzeBtnText = "▶  KRENI ANALIZATOR";
+        [ObservableProperty] private string _analyzingText = "";
 
         private bool _pendingAnalysis = false;
 
@@ -68,7 +79,7 @@ namespace ChessInsight.UI.ViewModels
         // ── Statički brushevi ───────────────────────────────────
         private static readonly Brush BrLight    = new SolidColorBrush(Color.FromRgb(0xF0, 0xD9, 0xB5));
         private static readonly Brush BrDark     = new SolidColorBrush(Color.FromRgb(0xB5, 0x88, 0x63));
-        private static readonly Brush BrLegal    = new SolidColorBrush(Color.FromArgb(210, 0xC8, 0xA8, 0x4B));
+        private static readonly Brush BrLegal    = new SolidColorBrush(Color.FromArgb(210, 0xC8, 0xA8, 0x4B)); // zadržano za kompatibilnost, nije u upotrebi
         private static readonly Brush BrBest     = new SolidColorBrush(Color.FromArgb(210, 0x4C, 0xAF, 0x50));
         private static readonly Brush BrSelected = new SolidColorBrush(Color.FromArgb(255, 0x60, 0x90, 0xC0));
         private static readonly Brush BrWhite    = Brushes.WhiteSmoke;
@@ -84,6 +95,7 @@ namespace ChessInsight.UI.ViewModels
         {
             for (int i = 0; i < 64; i++)
                 Squares.Add(new SquareViewModel { Index = i });
+            _stateHistory.Add(_gameState);
             UpdateLabels();
             RefreshBoard();
         }
@@ -96,8 +108,7 @@ namespace ChessInsight.UI.ViewModels
             _gameState = FenParser.Parse(fen);
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
-
-            MoveHistory.Clear();
+            ResetHistory();
 
             ScoreText = "—"; ScoreLabelText = "—";
             Move1Text = "—"; Score1Text = "";
@@ -118,8 +129,10 @@ namespace ChessInsight.UI.ViewModels
                 var piece = _gameState.Board.GetPiece(new Square(r, c));
                 bool isLight = (r + c) % 2 == 1;
 
-                Squares[i].Background   = isLight ? BrLight : BrDark;
-                Squares[i].PieceSymbol  = GetSymbol(piece);
+                Squares[i].Background     = isLight ? BrLight : BrDark;
+                Squares[i].IsLegalMove    = false;
+                Squares[i].IsLegalCapture = false;
+                Squares[i].PieceSymbol    = GetSymbol(piece);
                 Squares[i].PieceColor   = piece?.Color == PieceColor.White ? BrWhite : BrBlack;
                 Squares[i].PieceSvgUri  = GetSvgUri(piece);
                 Squares[i].PieceMargin  = piece?.Type switch
@@ -240,7 +253,13 @@ namespace ChessInsight.UI.ViewModels
                 .ToList();
 
             foreach (var m in _selectedPieceMoves)
-                Squares[ToVisualIndex(m.To.Row, m.To.Column)].Background = BrLegal;
+            {
+                int vi = ToVisualIndex(m.To.Row, m.To.Column);
+                if (m.Type is MoveType.Capture or MoveType.EnPassant)
+                    Squares[vi].IsLegalCapture = true;
+                else
+                    Squares[vi].IsLegalMove = true;
+            }
         }
 
         private Move ResolvePromotion(Move move, int toRow, int toCol)
@@ -263,18 +282,28 @@ namespace ChessInsight.UI.ViewModels
             _gameState.UpdateStatus(nextMoves);
 
             string notation = FormatMoveNotation(stateBefore, move);
-            RecordMove(notation, stateBefore.CurrentPlayer, stateBefore.FullMoveNumber);
+
+            // Obreži buduće stanje ako idemo u novu varijantu
+            if (_viewIndex < _stateHistory.Count - 1)
+            {
+                _stateHistory.RemoveRange(_viewIndex + 1, _stateHistory.Count - _viewIndex - 1);
+                _moveLog.RemoveRange(_viewIndex, _moveLog.Count - _viewIndex);
+            }
+
+            _stateHistory.Add(_gameState);
+            _moveLog.Add((move, notation, stateBefore.CurrentPlayer, stateBefore.FullMoveNumber));
+            _viewIndex++;
 
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
+            RebuildMoveHistory();
             RefreshBoard();
+            UpdateCanNavigate();
 
             if (IsAutoAnalyzing && !IsGameOver)
             {
-                if (IsAnalyzing)
-                    _pendingAnalysis = true;
-                else
-                    _ = AnalyzeAsync();
+                if (IsAnalyzing) _pendingAnalysis = true;
+                else _ = AnalyzeAsync();
             }
         }
 
@@ -299,29 +328,75 @@ namespace ChessInsight.UI.ViewModels
             AnalyzeBtnText  = "▶  KRENI ANALIZATOR";
         }
 
-        // ── Historija poteza — snimanje ─────────────────────────
+        // ── Navigacija kroz historiju ───────────────────────────
 
-        private void RecordMove(string notation, PieceColor player, int moveNumber)
+        public void GoBack()
         {
-            if (player == PieceColor.White)
+            if (_viewIndex <= 0 || IsAnalyzing) return;
+            _viewIndex--;
+            _gameState = _stateHistory[_viewIndex];
+            _selectedIndex = null;
+            _selectedPieceMoves.Clear();
+            RebuildMoveHistory();
+            RefreshBoard();
+            UpdateCanNavigate();
+            if (IsAutoAnalyzing && !IsGameOver) _ = AnalyzeAsync();
+        }
+
+        public void GoForward()
+        {
+            if (_viewIndex >= _stateHistory.Count - 1 || IsAnalyzing) return;
+            _viewIndex++;
+            _gameState = _stateHistory[_viewIndex];
+            _selectedIndex = null;
+            _selectedPieceMoves.Clear();
+            RebuildMoveHistory();
+            RefreshBoard();
+            UpdateCanNavigate();
+            if (IsAutoAnalyzing && !IsGameOver) _ = AnalyzeAsync();
+        }
+
+        private void UpdateCanNavigate()
+        {
+            CanGoBack    = _viewIndex > 0 && !IsAnalyzing;
+            CanGoForward = _viewIndex < _stateHistory.Count - 1 && !IsAnalyzing;
+        }
+
+        partial void OnIsAnalyzingChanged(bool value) => UpdateCanNavigate();
+
+        // ── Rebuild prikaza historije (najnoviji prvi) ──────────
+
+        private void RebuildMoveHistory()
+        {
+            MoveHistory.Clear();
+
+            var entries = new Dictionary<int, MoveHistoryEntry>();
+            for (int i = 0; i < _viewIndex; i++)
             {
-                MoveHistory.Add(new MoveHistoryEntry
+                var (_, san, player, moveNum) = _moveLog[i];
+                if (!entries.TryGetValue(moveNum, out var entry))
                 {
-                    Number    = moveNumber,
-                    WhiteMove = notation
-                });
+                    entry = new MoveHistoryEntry { Number = moveNum };
+                    entries[moveNum] = entry;
+                }
+                if (player == PieceColor.White) entry.WhiteMove = san;
+                else entry.BlackMove = san;
             }
-            else
-            {
-                if (MoveHistory.Count > 0)
-                    MoveHistory[^1].BlackMove = notation;
-                else
-                    MoveHistory.Add(new MoveHistoryEntry
-                    {
-                        Number    = moveNumber,
-                        BlackMove = notation
-                    });
-            }
+
+            foreach (var e in entries.Values.OrderByDescending(x => x.Number))
+                MoveHistory.Add(e);
+        }
+
+        // ── Reset historije ─────────────────────────────────────
+
+        private void ResetHistory()
+        {
+            _stateHistory.Clear();
+            _stateHistory.Add(_gameState);
+            _moveLog.Clear();
+            _viewIndex = 0;
+            MoveHistory.Clear();
+            UpdateCanNavigate();
         }
 
         // ── SAN notacija ────────────────────────────────────────
@@ -398,21 +473,30 @@ namespace ChessInsight.UI.ViewModels
             if (IsAnalyzing) return;
 
             _pendingAnalysis = false;
-            IsAnalyzing = true;
+            IsAnalyzing      = true;
+            AnalyzingText    = $"Analiziram... (dub. 0/{AnalysisDepth})";
             ClearHighlights();
             _selectedIndex = null;
 
-            // Snapshot — ako potez bude napravljen tokom analize, prepoznajemo staru poziciju
             var snapshot = _gameState;
-
             var sw = Stopwatch.StartNew();
+
+            // Progress callback — poziva se na UI threadu nakon svake završene dubine
+            var progress = new Progress<(int depth, List<SearchResult> results)>(update =>
+            {
+                if (!ReferenceEquals(snapshot, _gameState)) return;
+                var (d, res) = update;
+                AnalyzingText = $"Analiziram... (dub. {d}/{AnalysisDepth})";
+                ApplyAnalysisResults(snapshot, res, d, sw.Elapsed.TotalSeconds);
+            });
+
             var topMoves = await Task.Run(() =>
-                _engine.FindTopMoves(snapshot, AnalysisDepth, 3));
+                _engine.FindTopMovesIterative(snapshot, AnalysisDepth, 3, progress));
+
             sw.Stop();
+            IsAnalyzing   = false;
+            AnalyzingText = "";
 
-            IsAnalyzing = false;
-
-            // Potez napravljen tokom analize — rezultati su za staru poziciju, zanemari ih
             if (!ReferenceEquals(snapshot, _gameState))
             {
                 if (_pendingAnalysis && IsAutoAnalyzing && !IsGameOver)
@@ -420,30 +504,38 @@ namespace ChessInsight.UI.ViewModels
                 return;
             }
 
-            DepthText = AnalysisDepth.ToString();
-            NodesText = topMoves.Count > 0 ? topMoves[0].NodesSearched.ToString("N0") : "0";
-            TimeText  = $"{sw.Elapsed.TotalSeconds:F2}s";
-
-            if (topMoves.Count > 0)
+            // Označi najbolji potez na tabli
+            if (topMoves.Count > 0 && topMoves[0].BestMove != null)
             {
-                ScoreText      = FormatScore(topMoves[0].Score);
-                ScoreLabelText = GetScoreLabel(topMoves[0].Score);
+                var best = topMoves[0].BestMove!;
+                Squares[ToVisualIndex(best.From.Row, best.From.Column)].Background = BrBest;
+                Squares[ToVisualIndex(best.To.Row,   best.To.Column)  ].Background = BrBest;
+            }
 
-                var best = topMoves[0].BestMove;
-                if (best != null)
-                {
-                    Squares[ToVisualIndex(best.From.Row, best.From.Column)].Background = BrBest;
-                    Squares[ToVisualIndex(best.To.Row,   best.To.Column)  ].Background = BrBest;
-                }
+            if (_pendingAnalysis && IsAutoAnalyzing && !IsGameOver)
+                _ = AnalyzeAsync();
+        }
+
+        private void ApplyAnalysisResults(GameState snapshot, List<SearchResult> results,
+                                          int depth, double elapsedSec)
+        {
+            DepthText = $"{depth}/{AnalysisDepth}";
+            TimeText  = $"{elapsedSec:F2}s";
+            NodesText = results.Count > 0 ? results[0].NodesSearched.ToString("N0") : "0";
+
+            if (results.Count > 0)
+            {
+                ScoreText      = FormatScore(results[0].Score);
+                ScoreLabelText = GetScoreLabel(results[0].Score);
             }
 
             Move1Text = "—"; Score1Text = "";
             Move2Text = "—"; Score2Text = "";
             Move3Text = "—"; Score3Text = "";
 
-            for (int i = 0; i < topMoves.Count && i < 3; i++)
+            for (int i = 0; i < results.Count && i < 3; i++)
             {
-                var r = topMoves[i];
+                var r = results[i];
                 if (r.BestMove == null) continue;
                 string mv = BuildSan(snapshot, r.BestMove);
                 string sc = FormatScore(r.Score);
@@ -454,10 +546,6 @@ namespace ChessInsight.UI.ViewModels
                     case 2: Move3Text = mv; Score3Text = sc; break;
                 }
             }
-
-            // Potez napravljen dok smo ažurirali UI — pokreni ponovo za novu poziciju
-            if (_pendingAnalysis && IsAutoAnalyzing && !IsGameOver)
-                _ = AnalyzeAsync();
         }
 
         // ── Reset ───────────────────────────────────────────────
@@ -468,8 +556,7 @@ namespace ChessInsight.UI.ViewModels
             _gameState = new GameState();
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
-
-            MoveHistory.Clear();
+            ResetHistory();
 
             ScoreText = "0.00"; ScoreLabelText = "Ravnopravno";
             Move1Text = "—"; Score1Text = "";
@@ -512,7 +599,9 @@ namespace ChessInsight.UI.ViewModels
             {
                 var (r, c) = ToBoardCoords(i);
                 bool isLight = (r + c) % 2 == 1;
-                Squares[i].Background = isLight ? BrLight : BrDark;
+                Squares[i].Background     = isLight ? BrLight : BrDark;
+                Squares[i].IsLegalMove    = false;
+                Squares[i].IsLegalCapture = false;
             }
         }
 

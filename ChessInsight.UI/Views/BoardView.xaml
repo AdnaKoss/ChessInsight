@@ -57,6 +57,31 @@
                                                    IsHitTestVisible="False"
                                                    Visibility="{Binding PieceSvgUri,
                                                        Converter={StaticResource NullToVis}}"/>
+
+                                        <!-- Lichess-style kružić za legalni potez na praznom polju -->
+                                        <Grid IsHitTestVisible="False"
+                                              Visibility="{Binding IsLegalMove, Converter={StaticResource BoolToVis}}">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="4*"/>
+                                                <RowDefinition Height="3*"/>
+                                                <RowDefinition Height="4*"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="4*"/>
+                                                <ColumnDefinition Width="3*"/>
+                                                <ColumnDefinition Width="4*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Grid.Row="1" Grid.Column="1"
+                                                     Fill="#55000000"/>
+                                        </Grid>
+
+                                        <!-- Lichess-style prsten za legalno hvatanje figure -->
+                                        <Ellipse Margin="4"
+                                                 Fill="Transparent"
+                                                 Stroke="#55000000"
+                                                 StrokeThickness="8"
+                                                 IsHitTestVisible="False"
+                                                 Visibility="{Binding IsLegalCapture, Converter={StaticResource BoolToVis}}"/>
                                     </Grid>
                                 </Border>
                                 <ControlTemplate.Triggers>
