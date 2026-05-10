@@ -83,13 +83,13 @@ namespace ChessInsight.UI.ViewModels
             _gameState.Status is GameStatus.Checkmate or GameStatus.Stalemate or GameStatus.Draw;
 
         // ── Statički brushevi ───────────────────────────────────
-        private static readonly Brush BrLight    = new SolidColorBrush(Color.FromRgb(0xF0, 0xD9, 0xB5));
-        private static readonly Brush BrDark     = new SolidColorBrush(Color.FromRgb(0xB5, 0x88, 0x63));
-        private static readonly Brush BrLegal    = new SolidColorBrush(Color.FromArgb(210, 0xC8, 0xA8, 0x4B)); // zadržano za kompatibilnost, nije u upotrebi
-        private static readonly Brush BrBest     = new SolidColorBrush(Color.FromArgb(210, 0x4C, 0xAF, 0x50));
-        private static readonly Brush BrSelected = new SolidColorBrush(Color.FromArgb(255, 0x60, 0x90, 0xC0));
-        private static readonly Brush BrWhite    = Brushes.WhiteSmoke;
-        private static readonly Brush BrBlack    = new SolidColorBrush(Color.FromRgb(0x22, 0x22, 0x22));
+        private static readonly Brush BrLight    = new SolidColorBrush(Color.FromRgb(0xBA, 0xBA, 0xBA));
+        private static readonly Brush BrDark     = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A));
+        private static readonly Brush BrLegal    = new SolidColorBrush(Color.FromArgb(210, 0xC8, 0xA8, 0x4B));
+        private static readonly Brush BrBest     = new SolidColorBrush(Color.FromArgb(210, 0x1D, 0x9E, 0x75));
+        private static readonly Brush BrSelected = new SolidColorBrush(Color.FromArgb(255, 0x85, 0xB7, 0xEB));
+        private static readonly Brush BrWhite    = new SolidColorBrush(Color.FromRgb(0xFA, 0xFA, 0xFA));
+        private static readonly Brush BrBlack    = new SolidColorBrush(Color.FromRgb(0x16, 0x16, 0x16));
 
         private static readonly System.Windows.Thickness MarginPiece      = new(5);
         private static readonly System.Windows.Thickness MarginRookKnight = new(8);

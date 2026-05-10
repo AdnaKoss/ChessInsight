@@ -5,7 +5,7 @@
              PreviewMouseLeftButtonDown="Board_PreviewMouseDown"
              PreviewMouseMove="Board_PreviewMouseMove"
              PreviewMouseLeftButtonUp="Board_PreviewMouseUp">
-    <Border BorderBrush="#555860" BorderThickness="2">
+    <Border BorderBrush="#26FFFFFF" BorderThickness="1">
         <ItemsControl x:Name="BoardGrid"
                       ItemsSource="{Binding Squares}">
 
