@@ -1,3 +1,4 @@
+using ChessInsight.Core;
 using ChessInsight.Core.Engine;
 using ChessInsight.Core.Enums;
 using ChessInsight.Core.Models;
@@ -5,49 +6,133 @@ using ChessInsight.Core.Models;
 namespace ChessInsight.Engine
 {
     /// <summary>
-    /// Minimax s alfa-beta rezanjem, move orderingom i quiescence searchom.
+    /// Minimax s alfa-beta rezanjem i četiri napredne optimizacije:
+    /// Transposition Table, Killer Move Heuristic, Null Move Pruning,
+    /// Aspiration Windows + Iterative Deepening.
     /// </summary>
     public class AlphaBeta
     {
-        private readonly Evaluator _evaluator = new();
-        private readonly MoveGenerator _generator = new();
+        private readonly Evaluator          _evaluator  = new();
+        private readonly MoveGenerator      _generator  = new();
+        private readonly TranspositionTable _tt         = new();
 
-        private int _nodesSearched;
+        private const int MaxPly    = 64;
+        private const int NullMoveR = 2; // null-move redukcija dubine
+
+        private int    _nodesSearched;
+        private Move?[,] _killers = new Move?[MaxPly, 2]; // 2 killer poteza po plyu
 
         // ── Root pretrage ────────────────────────────────────────
 
         /// <summary>
-        /// Iterative deepening: pretražuje dubinu 1..maxDepth i izvještava nakon svake.
-        /// Progress callback se poziva na pozivajućem threadu (wrappan u IProgress).
+        /// Iterative deepening s aspiration windows.
+        /// Prozor ±50 cp; pri fail-low/high širi se 4× sve dok ne dođe do pune pretrage.
         /// </summary>
         public List<SearchResult> FindTopMovesIterative(
             GameState state, int maxDepth, int count,
-            IProgress<(int depth, List<SearchResult> results)>? progress = null)
+            IProgress<(int depth, List<SearchResult> results)>? progress = null,
+            CancellationToken cancellationToken = default,
+            Dictionary<ulong, int>? gameHistory = null)
         {
-            List<SearchResult> last = new();
+            _tt.Clear();
+            Array.Clear(_killers, 0, _killers.Length);
+
+            List<SearchResult> last = [];
+            int prevScore = 0;
+
             for (int d = 1; d <= maxDepth; d++)
             {
-                last = FindTopMoves(state, d, count);
-                progress?.Report((d, last));
+                try
+                {
+                    List<SearchResult> current;
+
+                    if (d <= 2)
+                    {
+                        // Prve dvije dubine — puni prozor (bez aspiration windows)
+                        current = FindTopMoves(state, d, count,
+                                               int.MinValue, int.MaxValue,
+                                               cancellationToken, gameHistory);
+                    }
+                    else
+                    {
+                        // Aspiration windows — uski prozor oko prethodnog skora
+                        int delta = 50;
+                        int lo = prevScore - delta;
+                        int hi = prevScore + delta;
+                        current = last; // fallback ako retry ne uspije
+
+                        while (true)
+                        {
+                            var attempt = FindTopMoves(state, d, count, lo, hi,
+                                                       cancellationToken, gameHistory);
+                            if (attempt.Count == 0) break;
+
+                            int s = attempt[0].Score;
+                            current = attempt;
+
+                            if (s <= lo)
+                            {
+                                // Fail-low — širi prozor prema dolje
+                                delta *= 4;
+                                lo     = prevScore - delta;
+                                if (lo < -90000) { lo = int.MinValue; hi = int.MaxValue; break; }
+                            }
+                            else if (s >= hi)
+                            {
+                                // Fail-high — širi prozor prema gore
+                                delta *= 4;
+                                hi     = prevScore + delta;
+                                if (hi > 90000)  { lo = int.MinValue; hi = int.MaxValue; break; }
+                            }
+                            else break; // unutar prozora — gotovo
+                        }
+                    }
+
+                    if (current.Count > 0)
+                    {
+                        prevScore = current[0].Score;
+                        last      = current;
+                    }
+                    progress?.Report((d, last));
+                }
+                catch (OperationCanceledException) { break; }
             }
+
             return last;
         }
 
-        public List<SearchResult> FindTopMoves(GameState state, int depth, int count)
+        public List<SearchResult> FindTopMoves(GameState state, int depth, int count,
+            int rootAlpha, int rootBeta,
+            CancellationToken cancellationToken = default,
+            Dictionary<ulong, int>? gameHistory = null)
         {
             _nodesSearched = 0;
 
+            var history = gameHistory != null
+                ? new Dictionary<ulong, int>(gameHistory)
+                : new Dictionary<ulong, int>();
+
+            ulong rootHash = Zobrist.Compute(state);
+            history.TryGetValue(rootHash, out int rootCount);
+            history[rootHash] = rootCount + 1;
+
             var legalMoves = _generator.GetLegalMoves(state);
-            if (legalMoves.Count == 0) return new List<SearchResult>();
+            if (legalMoves.Count == 0) return [];
 
             bool isMax = state.CurrentPlayer == PieceColor.White;
             var scored = new (Move move, int score)[legalMoves.Count];
             int idx = 0;
 
-            foreach (var move in OrderMoves(legalMoves, state.Board))
+            _tt.TryProbe(rootHash, depth, rootAlpha, rootBeta, out _, out Move? ttMove);
+
+            foreach (var move in OrderMoves(legalMoves, state.Board, ttMove, null, 0))
             {
-                var next = state.ApplyMove(move);
-                int score = Search(next, depth - 1, !isMax, int.MinValue, int.MaxValue);
+                cancellationToken.ThrowIfCancellationRequested();
+                var next     = state.ApplyMove(move);
+                var histCopy = new Dictionary<ulong, int>(history);
+                int score    = Search(next, depth - 1, !isMax,
+                                      rootAlpha, rootBeta,
+                                      cancellationToken, histCopy, 1);
                 scored[idx++] = (move, score);
             }
 
@@ -56,7 +141,7 @@ namespace ChessInsight.Engine
                 : Comparer<(Move, int score)>.Create((a, b) => a.score.CompareTo(b.score)));
 
             int totalNodes = _nodesSearched;
-            var results = new List<SearchResult>(Math.Min(count, idx));
+            var results    = new List<SearchResult>(Math.Min(count, idx));
             for (int i = 0; i < Math.Min(count, idx); i++)
                 results.Add(new SearchResult
                 {
@@ -67,30 +152,44 @@ namespace ChessInsight.Engine
             return results;
         }
 
-        public SearchResult FindBestMove(GameState state, int depth)
+        public SearchResult FindBestMove(GameState state, int depth,
+            CancellationToken cancellationToken = default,
+            Dictionary<ulong, int>? gameHistory = null)
         {
             _nodesSearched = 0;
+            Array.Clear(_killers, 0, _killers.Length);
+
+            var history = gameHistory != null
+                ? new Dictionary<ulong, int>(gameHistory)
+                : new Dictionary<ulong, int>();
+
+            ulong rootHash = Zobrist.Compute(state);
+            history.TryGetValue(rootHash, out int rootCount);
+            history[rootHash] = rootCount + 1;
 
             var legalMoves = _generator.GetLegalMoves(state);
             if (legalMoves.Count == 0) return new SearchResult { Score = 0 };
 
-            bool isMax = state.CurrentPlayer == PieceColor.White;
+            bool isMax    = state.CurrentPlayer == PieceColor.White;
             Move? bestMove = null;
-            int bestScore = isMax ? int.MinValue : int.MaxValue;
-            int alpha = int.MinValue;
-            int beta  = int.MaxValue;
+            int bestScore  = isMax ? int.MinValue : int.MaxValue;
+            int alpha      = int.MinValue;
+            int beta       = int.MaxValue;
 
-            foreach (var move in OrderMoves(legalMoves, state.Board))
+            _tt.TryProbe(rootHash, depth, alpha, beta, out _, out Move? ttMove);
+
+            foreach (var move in OrderMoves(legalMoves, state.Board, ttMove, null, 0))
             {
-                var next  = state.ApplyMove(move);
-                int score = Search(next, depth - 1, !isMax, alpha, beta);
+                var next     = state.ApplyMove(move);
+                var histCopy = new Dictionary<ulong, int>(history);
+                int score    = Search(next, depth - 1, !isMax, alpha, beta,
+                                      cancellationToken, histCopy, 1);
 
-                if (isMax && score > bestScore || !isMax && score < bestScore)
+                if (isMax ? score > bestScore : score < bestScore)
                 {
                     bestScore = score;
                     bestMove  = move;
                 }
-
                 if (isMax) alpha = Math.Max(alpha, bestScore);
                 else       beta  = Math.Min(beta,  bestScore);
             }
@@ -105,12 +204,24 @@ namespace ChessInsight.Engine
 
         // ── Rekurzivna pretraga ──────────────────────────────────
 
-        private int Search(GameState state, int depth, bool isMax, int alpha, int beta)
+        private int Search(GameState state, int depth, bool isMax, int alpha, int beta,
+            CancellationToken cancellationToken, Dictionary<ulong, int> history, int ply)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Detekcija trostrukog ponavljanja
+            ulong hash = Zobrist.Compute(state);
+            history.TryGetValue(hash, out int repCount);
+            if (repCount >= 2) return 0;
+
             _nodesSearched++;
 
+            // ── Transposition Table probe ────────────────────────
+            if (_tt.TryProbe(hash, depth, alpha, beta, out int ttScore, out Move? ttMove))
+                return ttScore;
+
             if (depth == 0)
-                return QSearch(state, alpha, beta, isMax);
+                return QSearch(state, alpha, beta, isMax, cancellationToken: cancellationToken);
 
             var moves = _generator.GetLegalMoves(state);
 
@@ -121,43 +232,148 @@ namespace ChessInsight.Engine
                 return 0; // pat
             }
 
-            if (isMax)
+            bool inCheck = state.IsInCheck(state.CurrentPlayer);
+
+            // ── Null Move Pruning ────────────────────────────────
+            // Preskačemo vlastiti potez — ako je pozicija i dalje dobra, pruning je siguran.
+            // Isključeno: pri šahu, u endgameu (zugzwang) i na ply 0 (root).
+            if (!inCheck && depth >= 3 && ply > 0 && !IsEndgame(state))
             {
-                int max = int.MinValue;
-                foreach (var move in OrderMoves(moves, state.Board))
+                int R           = depth > 6 ? 3 : NullMoveR; // adaptivna redukcija
+                var nullState   = state.ApplyNullMove();
+                var nullHistory = new Dictionary<ulong, int>(history);
+
+                if (isMax)
                 {
-                    int score = Search(state.ApplyMove(move), depth - 1, false, alpha, beta);
-                    max   = Math.Max(max, score);
-                    alpha = Math.Max(alpha, score);
-                    if (alpha >= beta) break;
+                    // Bijeli preskače — crni dobija slobodan potez
+                    int nullScore = Search(nullState, depth - 1 - R, false,
+                                          beta - 1, beta, cancellationToken, nullHistory, ply + 1);
+                    if (nullScore >= beta) return beta; // beta cutoff
                 }
-                return max;
+                else
+                {
+                    // Crni preskače — bijeli dobija slobodan potez
+                    int nullScore = Search(nullState, depth - 1 - R, true,
+                                          alpha, alpha + 1, cancellationToken, nullHistory, ply + 1);
+                    if (nullScore <= alpha) return alpha; // alpha cutoff
+                }
             }
+
+            // ── Futility pruning setup ───────────────────────────
+            // Statička evaluacija: izračunaj samo za čvorove blizu horizonta
+            int staticEval = (!inCheck && depth <= 2) ? _evaluator.Evaluate(state) : 0;
+
+            // Dodaj poziciju u historiju (backtrack nakon pretrage)
+            history[hash] = repCount + 1;
+
+            int origAlpha     = alpha;
+            int origBeta      = beta;
+            Move? bestMove    = null;
+            int best          = isMax ? int.MinValue : int.MaxValue;
+            bool hadCutoff    = false;
+            int moveIdx       = 0; // pozicija u listi (za LMR)
+            int searchedCount = 0; // broj stvarno pretraženih poteza (za PVS)
+
+            foreach (var move in OrderMoves(moves, state.Board, ttMove, _killers, ply))
+            {
+                bool isQuiet = move.Type == MoveType.Normal;
+
+                // ── Futility pruning ─────────────────────────────
+                // Preskačemo tihe poteze kad statička evaluacija + margin ne može poboljšati alfa/betu.
+                // Nikad ne preskačemo prvi potez (garantujemo barem jednu pretragu).
+                if (searchedCount > 0 && !inCheck && depth <= 2 && isQuiet)
+                {
+                    int margin = depth == 1 ? 200 : 500;
+                    if (isMax  && staticEval + margin <= alpha) { moveIdx++; continue; }
+                    if (!isMax && staticEval - margin >= beta)  { moveIdx++; continue; }
+                }
+
+                var nextState = state.ApplyMove(move);
+                int score;
+
+                if (searchedCount == 0)
+                {
+                    // ── PV potez: puna dubina, puni prozor ──────
+                    score = Search(nextState, depth - 1, !isMax, alpha, beta,
+                                   cancellationToken, history, ply + 1);
+                }
+                else if (isMax)
+                {
+                    // ── LMR + PVS (maximizer) ────────────────────
+                    // Late Move Reduction: smanji dubinu za kasne tihe poteze
+                    int reduction = (isQuiet && depth >= 3 && moveIdx >= 4 && !inCheck)
+                        ? (moveIdx >= 8 ? 2 : 1) : 0;
+                    int lmrDepth = Math.Max(0, depth - 1 - reduction);
+
+                    // PVS: null-window pretraga na (eventualno) smanjenoj dubini
+                    score = Search(nextState, lmrDepth, false, alpha, alpha + 1,
+                                   cancellationToken, history, ply + 1);
+
+                    // Fail-high → re-search s punom dubinom i punim prozorom
+                    if (score > alpha)
+                        score = Search(nextState, depth - 1, false, alpha, beta,
+                                       cancellationToken, history, ply + 1);
+                }
+                else
+                {
+                    // ── LMR + PVS (minimizer) ────────────────────
+                    int reduction = (isQuiet && depth >= 3 && moveIdx >= 4 && !inCheck)
+                        ? (moveIdx >= 8 ? 2 : 1) : 0;
+                    int lmrDepth = Math.Max(0, depth - 1 - reduction);
+
+                    score = Search(nextState, lmrDepth, true, beta - 1, beta,
+                                   cancellationToken, history, ply + 1);
+
+                    // Fail-low → re-search s punom dubinom i punim prozorom
+                    if (score < beta)
+                        score = Search(nextState, depth - 1, true, alpha, beta,
+                                       cancellationToken, history, ply + 1);
+                }
+
+                moveIdx++;
+                searchedCount++;
+
+                if (isMax ? score > best : score < best) { best = score; bestMove = move; }
+                if (isMax) alpha = Math.Max(alpha, best);
+                else       beta  = Math.Min(beta,  best);
+
+                if (alpha >= beta)
+                {
+                    if (isQuiet) StoreKiller(move, ply);
+                    hadCutoff = true;
+                    break;
+                }
+            }
+
+            // Backtrack historije
+            history[hash] = repCount;
+            if (repCount == 0) history.Remove(hash);
+
+            // Svi potezi preskočeni futility pruningom — vrati graničnu vrijednost
+            if (searchedCount == 0)
+                return isMax ? alpha : beta;
+
+            // ── Transposition Table store ────────────────────────
+            TtFlag flag;
+            if (hadCutoff)
+                flag = isMax ? TtFlag.LowerBound : TtFlag.UpperBound;
+            else if (isMax ? best > origAlpha : best < origBeta)
+                flag = TtFlag.Exact;
             else
-            {
-                int min = int.MaxValue;
-                foreach (var move in OrderMoves(moves, state.Board))
-                {
-                    int score = Search(state.ApplyMove(move), depth - 1, true, alpha, beta);
-                    min  = Math.Min(min, score);
-                    beta = Math.Min(beta, score);
-                    if (alpha >= beta) break;
-                }
-                return min;
-            }
+                flag = isMax ? TtFlag.UpperBound : TtFlag.LowerBound;
+
+            _tt.Store(hash, depth, best, flag, bestMove);
+            return best;
         }
 
         // ── Quiescence search ────────────────────────────────────
-        // Nastavlja pretragu samo kroz hvatanja dok se ne dođe do "mirne" pozicije.
-        // Sprečava horizon effect — engine ne može ignorisati hvatanje odmah iza horizonta.
 
-        private int QSearch(GameState state, int alpha, int beta, bool isMax, int qDepth = 0)
+        private int QSearch(GameState state, int alpha, int beta, bool isMax, int qDepth = 0,
+            CancellationToken cancellationToken = default)
         {
             _nodesSearched++;
 
             int standPat = _evaluator.Evaluate(state);
-
-            // Sigurnosni izlaz da se spriječi beskonačna rekurzija
             if (qDepth >= 6) return standPat;
 
             if (isMax)
@@ -177,14 +393,14 @@ namespace ChessInsight.Engine
 
             if (captures.Count == 0) return standPat;
 
-            captures = OrderMoves(captures, state.Board);
+            captures = OrderMoves(captures, state.Board, null, null, 0);
 
             if (isMax)
             {
                 int max = standPat;
                 foreach (var move in captures)
                 {
-                    int score = QSearch(state.ApplyMove(move), alpha, beta, false, qDepth + 1);
+                    int score = QSearch(state.ApplyMove(move), alpha, beta, false, qDepth + 1, cancellationToken);
                     max   = Math.Max(max, score);
                     alpha = Math.Max(alpha, score);
                     if (alpha >= beta) break;
@@ -196,7 +412,7 @@ namespace ChessInsight.Engine
                 int min = standPat;
                 foreach (var move in captures)
                 {
-                    int score = QSearch(state.ApplyMove(move), alpha, beta, true, qDepth + 1);
+                    int score = QSearch(state.ApplyMove(move), alpha, beta, true, qDepth + 1, cancellationToken);
                     min  = Math.Min(min, score);
                     beta = Math.Min(beta, score);
                     if (alpha >= beta) break;
@@ -205,15 +421,30 @@ namespace ChessInsight.Engine
             }
         }
 
-        // ── Move ordering (MVV-LVA) ──────────────────────────────
-        // Promocije prvo, zatim hvatanja (MVV-LVA), zatim mirni potezi.
+        // ── Killer Move heuristika ───────────────────────────────
 
-        private static List<Move> OrderMoves(List<Move> moves, Board board)
+        private void StoreKiller(Move move, int ply)
         {
-            // Scoring bez LINQ alokacija
+            if (ply >= MaxPly) return;
+            // Ne dupliciraj isti killer
+            if (!SameMove(_killers[ply, 0], move))
+            {
+                _killers[ply, 1] = _killers[ply, 0];
+                _killers[ply, 0] = move;
+            }
+        }
+
+        private static bool SameMove(Move? a, Move b) =>
+            a != null && a.Equals(b);
+
+        // ── Move ordering: TT > Promocija > MVV-LVA > Killer > Tihi ──
+
+        private static List<Move> OrderMoves(List<Move> moves, Board board,
+            Move? ttMove, Move?[,]? killers, int ply)
+        {
             var buf = new (Move m, int score)[moves.Count];
             for (int i = 0; i < moves.Count; i++)
-                buf[i] = (moves[i], MoveScore(moves[i], board));
+                buf[i] = (moves[i], MoveScore(moves[i], board, ttMove, killers, ply));
 
             Array.Sort(buf, (a, b) => b.score.CompareTo(a.score));
 
@@ -222,19 +453,37 @@ namespace ChessInsight.Engine
             return result;
         }
 
-        private static int MoveScore(Move m, Board board)
+        private static int MoveScore(Move m, Board board, Move? ttMove,
+            Move?[,]? killers, int ply)
         {
+            if (ttMove != null && m.Equals(ttMove)) return 40000;
+
             if (m.Type == MoveType.PawnPromotion) return 30000;
+
             if (m.Type is MoveType.Capture or MoveType.EnPassant)
             {
-                var victim   = board.GetPiece(m.To);
-                var attacker = board.GetPiece(m.From);
+                var victim      = board.GetPiece(m.To);
+                var attacker    = board.GetPiece(m.From);
                 int victimVal   = victim   != null ? PieceVal(victim.Type)   : 100;
                 int attackerVal = attacker != null ? PieceVal(attacker.Type) : 100;
                 return 10000 + victimVal * 10 - attackerVal;
             }
+
+            if (killers != null && ply < MaxPly)
+            {
+                if (SameMove(killers[ply, 0], m)) return 9000;
+                if (SameMove(killers[ply, 1], m)) return 8000;
+            }
+
             return 0;
         }
+
+        // ── Pomoćne funkcije ─────────────────────────────────────
+
+        // Endgame: ni bijeli ni crni nemaju damu → veća opasnost od zugzwanga
+        private static bool IsEndgame(GameState state) =>
+            !state.Board.GetPieces(PieceColor.White).Any(p => p.Type == PieceType.Queen) &&
+            !state.Board.GetPieces(PieceColor.Black).Any(p => p.Type == PieceType.Queen);
 
         private static int PieceVal(PieceType t) => t switch
         {

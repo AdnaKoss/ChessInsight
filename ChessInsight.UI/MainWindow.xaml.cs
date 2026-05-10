@@ -76,7 +76,26 @@ namespace ChessInsight.UI
 
         private void BtnSetupPosition_Click(object sender, RoutedEventArgs e)
         {
-            // Position editor — dolazi u kasnijem koraku
+            var gs     = _vm.CurrentGameState;
+            var dialog = new PositionEditorDialog { Owner = this };
+            dialog.LoadCurrentPosition(gs.Board, gs.CurrentPlayer);
+
+            if (dialog.ShowDialog() == true && dialog.ResultFen != null)
+            {
+                TxtFen.Text = dialog.ResultFen;
+                try
+                {
+                    _vm.LoadFen(dialog.ResultFen);
+                }
+                catch (ArgumentException ex)
+                {
+                    MessageBox.Show(
+                        $"Greška pri učitavanju pozicije:\n\n{ex.Message}",
+                        "Greška",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
         }
     }
 }

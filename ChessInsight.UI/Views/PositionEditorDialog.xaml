@@ -1,0 +1,167 @@
+<Window x:Class="ChessInsight.UI.Views.PositionEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Postavi poziciju"
+        Width="750" Height="570"
+        MinWidth="700" MinHeight="530"
+        WindowStartupLocation="CenterOwner"
+        Background="#2B2D30"
+        ResizeMode="CanMinimize">
+
+    <Grid Margin="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="14"/>
+            <ColumnDefinition Width="210"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Lijevo: šahovska ploča (kvadratna) -->
+        <Border Grid.Column="0" BorderBrush="#555860" BorderThickness="2">
+            <Viewbox Stretch="Uniform">
+                <UniformGrid x:Name="EditorBoardGrid"
+                             Rows="8" Columns="8"
+                             Width="480" Height="480"/>
+            </Viewbox>
+        </Border>
+
+        <!-- Desno: kontrole -->
+        <StackPanel Grid.Column="2" VerticalAlignment="Top">
+
+            <!-- Odabrana figura -->
+            <Border Background="#43464D" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="ODABRANA FIGURA"
+                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtSelected"
+                               Foreground="#FFD700" FontSize="13"
+                               FontFamily="Segoe UI Symbol"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Bijele figure -->
+            <Border Background="#43464D" CornerRadius="6" Padding="10,10" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="BIJELE FIGURE"
+                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Margin="0,0,0,8"/>
+                    <UniformGrid x:Name="WhitePalette" Rows="1" Columns="6" Height="36"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Crne figure -->
+            <Border Background="#43464D" CornerRadius="6" Padding="10,10" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="CRNE FIGURE"
+                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Margin="0,0,0,8"/>
+                    <UniformGrid x:Name="BlackPalette" Rows="1" Columns="6" Height="36"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Gumica -->
+            <Button x:Name="BtnEraser"
+                    Height="34" Margin="0,0,0,10"
+                    Style="{StaticResource BtnBase}"
+                    Content="✕  Gumica (brisanje)"
+                    Click="BtnEraser_Click"/>
+
+            <!-- Separator -->
+            <Rectangle Height="1" Fill="#555860" Margin="0,0,0,10"/>
+
+            <!-- Ko je na potezu -->
+            <Border Background="#43464D" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="KO JE NA POTEZU"
+                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Margin="0,0,0,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <RadioButton x:Name="RbWhite" Grid.Column="0" IsChecked="True"
+                                     GroupName="SideToMove" Cursor="Hand"
+                                     Checked="SideToMove_Checked">
+                            <RadioButton.Template>
+                                <ControlTemplate TargetType="RadioButton">
+                                    <Border x:Name="Bd"
+                                            Background="#2B2D30"
+                                            BorderBrush="#555860" BorderThickness="2"
+                                            CornerRadius="4" Padding="6,5">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Ellipse Width="11" Height="11"
+                                                     Fill="#F0D9B5"
+                                                     Stroke="#555860" StrokeThickness="1"
+                                                     VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Bijeli"
+                                                       Foreground="#E8E8E8" FontSize="12"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FFD700"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#3A3C40"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </RadioButton.Template>
+                        </RadioButton>
+                        <RadioButton x:Name="RbBlack" Grid.Column="2"
+                                     GroupName="SideToMove" Cursor="Hand"
+                                     Checked="SideToMove_Checked">
+                            <RadioButton.Template>
+                                <ControlTemplate TargetType="RadioButton">
+                                    <Border x:Name="Bd"
+                                            Background="#2B2D30"
+                                            BorderBrush="#555860" BorderThickness="2"
+                                            CornerRadius="4" Padding="6,5">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Ellipse Width="11" Height="11"
+                                                     Fill="#1A1A1A"
+                                                     Stroke="#9B9EA3" StrokeThickness="1"
+                                                     VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Crni"
+                                                       Foreground="#E8E8E8" FontSize="12"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FFD700"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#3A3C40"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </RadioButton.Template>
+                        </RadioButton>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Očisti ploču -->
+            <Button Height="34" Margin="0,0,0,6"
+                    Style="{StaticResource BtnBase}"
+                    Content="⬜  Očisti ploču"
+                    Click="BtnClear_Click"/>
+
+            <!-- Separator -->
+            <Rectangle Height="1" Fill="#555860" Margin="0,8,0,8"/>
+
+            <!-- Postavi poziciju (OK) -->
+            <Button Height="40" Margin="0,0,0,6"
+                    Style="{StaticResource BtnAnalyze}"
+                    Content="✓  Postavi poziciju"
+                    Click="BtnOk_Click"/>
+
+            <!-- Odustani -->
+            <Button Height="34"
+                    Style="{StaticResource BtnBase}"
+                    Content="Odustani"
+                    Click="BtnCancel_Click"/>
+
+        </StackPanel>
+    </Grid>
+</Window>

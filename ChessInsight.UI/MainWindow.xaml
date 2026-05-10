@@ -50,61 +50,91 @@
                 <ColumnDefinition Width="290"/>
             </Grid.ColumnDefinitions>
 
-            <!-- ── Lijevo: šahovska tabla (Viewbox čuva omjer 1:1) ── -->
-            <Viewbox Grid.Column="0"
-                     Stretch="Uniform"
-                     Margin="16"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center">
-                <!-- Fiksna unutarnja veličina — Viewbox skalira proporcionalno -->
-                <Grid Width="520" Height="520">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="500"/>
-                        <RowDefinition Height="20"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="20"/>
-                        <ColumnDefinition Width="500"/>
-                    </Grid.ColumnDefinitions>
+            <!-- ── Lijevo: šahovska tabla + indikator na potezu ── -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                    <!-- Oznake redova — dinamične (okreću se pri flipu) -->
-                    <ItemsControl Grid.Row="0" Grid.Column="0"
-                                  ItemsSource="{Binding RowLabels}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Columns="1" Rows="8"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                <Viewbox Grid.Row="0"
+                         Stretch="Uniform"
+                         Margin="16,16,16,6"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center">
+                    <!-- Fiksna unutarnja veličina — Viewbox skalira proporcionalno -->
+                    <Grid Width="520" Height="520">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="500"/>
+                            <RowDefinition Height="20"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="500"/>
+                        </Grid.ColumnDefinitions>
 
-                    <!-- Šahovska tabla -->
-                    <views:BoardView Grid.Row="0" Grid.Column="1"/>
+                        <!-- Oznake redova — dinamične (okreću se pri flipu) -->
+                        <ItemsControl Grid.Row="0" Grid.Column="0"
+                                      ItemsSource="{Binding RowLabels}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="1" Rows="8"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
-                    <!-- Oznake kolona — dinamične (okreću se pri flipu) -->
-                    <ItemsControl Grid.Row="1" Grid.Column="1"
-                                  ItemsSource="{Binding ColLabels}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Rows="1" Columns="8"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Grid>
-            </Viewbox>
+                        <!-- Šahovska tabla -->
+                        <views:BoardView Grid.Row="0" Grid.Column="1"/>
+
+                        <!-- Oznake kolona — dinamične (okreću se pri flipu) -->
+                        <ItemsControl Grid.Row="1" Grid.Column="1"
+                                      ItemsSource="{Binding ColLabels}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" Columns="8"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Viewbox>
+
+                <!-- Indikator: ko je na potezu -->
+                <Border Grid.Row="1"
+                        Margin="16,0,16,10"
+                        Padding="14,6"
+                        Background="{StaticResource BgToolbar}"
+                        BorderBrush="{StaticResource BorderColor}"
+                        BorderThickness="1"
+                        CornerRadius="5"
+                        HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="13" Height="13"
+                                 Fill="{Binding SideToMoveFill}"
+                                 Stroke="{StaticResource BorderColor}"
+                                 StrokeThickness="1.5"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding GameStatusText}"
+                                   Foreground="{StaticResource TextPrimary}"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
 
             <!-- ── Separator ──────────────────────────────────── -->
             <Rectangle Grid.Column="1" Fill="{StaticResource BorderColor}"/>

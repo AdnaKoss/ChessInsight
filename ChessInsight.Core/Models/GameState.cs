@@ -225,6 +225,23 @@ namespace ChessInsight.Core.Models
                 wCK, wCQ, bCK, bCQ, halfMove, fullMove);
         }
 
+        // ── Null potez (za Null Move Pruning) ───────────────────
+
+        /// <summary>
+        /// Vraća stanje u kojem je protivnik na potezu, a tabla je ista.
+        /// En passant polje se poništava jer se "preskočio" polu-potez.
+        /// Koristi se isključivo u Null Move Pruning heuristici.
+        /// </summary>
+        public GameState ApplyNullMove()
+        {
+            var board = Board.Clone();
+            board.EnPassantSquare = null;
+            return new GameState(board, Opponent(CurrentPlayer), GameStatus.Active,
+                WhiteCanCastleKingside, WhiteCanCastleQueenside,
+                BlackCanCastleKingside, BlackCanCastleQueenside,
+                HalfMoveClock, FullMoveNumber);
+        }
+
         // ── Helper ───────────────────────────────────────────────
 
         public static PieceColor Opponent(PieceColor color) =>

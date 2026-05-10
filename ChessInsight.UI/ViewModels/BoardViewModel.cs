@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
 using System.Windows.Media;
+using System.Collections.Generic;
 using ChessInsight.Core;
 using ChessInsight.Core.Engine;
 using ChessInsight.Core.Enums;
@@ -39,11 +40,13 @@ namespace ChessInsight.UI.ViewModels
         [ObservableProperty] private string _analyzingText = "";
 
         private bool _pendingAnalysis = false;
+        private CancellationTokenSource? _analysisCts;
 
         // ── Panel — evaluacija ───────────────────────────────────
         [ObservableProperty] private string _scoreText = "0.00";
         [ObservableProperty] private string _scoreLabelText = "Ravnopravno";
         [ObservableProperty] private string _gameStatusText = "Bijeli na potezu";
+        [ObservableProperty] private Brush  _sideToMoveFill = Brushes.White;
 
         // ── Panel — top 3 poteza ────────────────────────────────
         [ObservableProperty] private string _move1Text = "—";
@@ -71,7 +74,10 @@ namespace ChessInsight.UI.ViewModels
         // ── Events ─────────────────────────────────────────────
         public event Func<PieceColor, PieceType>? PromotionRequired;
 
-        private const int AnalysisDepth = 4;
+        // ── Pristup trenutnom stanju (za editor pozicije) ───────
+        public GameState CurrentGameState => _gameState;
+
+        private const int AnalysisDepth = 6;
 
         private bool IsGameOver =>
             _gameState.Status is GameStatus.Checkmate or GameStatus.Stalemate or GameStatus.Draw;
@@ -160,6 +166,10 @@ namespace ChessInsight.UI.ViewModels
                     ? "Bijeli na potezu"
                     : "Crni na potezu"
             };
+
+            SideToMoveFill = _gameState.CurrentPlayer == PieceColor.White
+                ? new SolidColorBrush(Color.FromRgb(0xF0, 0xD9, 0xB5))
+                : new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
         }
 
         // ── Klik na polje ───────────────────────────────────────
@@ -326,6 +336,7 @@ namespace ChessInsight.UI.ViewModels
         {
             IsAutoAnalyzing = false;
             AnalyzeBtnText  = "▶  KRENI ANALIZATOR";
+            _analysisCts?.Cancel();
         }
 
         // ── Navigacija kroz historiju ───────────────────────────
@@ -472,6 +483,10 @@ namespace ChessInsight.UI.ViewModels
         {
             if (IsAnalyzing) return;
 
+            _analysisCts?.Dispose();
+            _analysisCts = new CancellationTokenSource();
+            var token = _analysisCts.Token;
+
             _pendingAnalysis = false;
             IsAnalyzing      = true;
             AnalyzingText    = $"Analiziram... (dub. 0/{AnalysisDepth})";
@@ -481,23 +496,43 @@ namespace ChessInsight.UI.ViewModels
             var snapshot = _gameState;
             var sw = Stopwatch.StartNew();
 
-            // Progress callback — poziva se na UI threadu nakon svake završene dubine
             var progress = new Progress<(int depth, List<SearchResult> results)>(update =>
             {
+                if (token.IsCancellationRequested) return;
                 if (!ReferenceEquals(snapshot, _gameState)) return;
                 var (d, res) = update;
                 AnalyzingText = $"Analiziram... (dub. {d}/{AnalysisDepth})";
                 ApplyAnalysisResults(snapshot, res, d, sw.Elapsed.TotalSeconds);
             });
 
-            var topMoves = await Task.Run(() =>
-                _engine.FindTopMovesIterative(snapshot, AnalysisDepth, 3, progress));
+            // Napravi historiju pozicija iz stvarne igre (za detekciju ponavljanja)
+            var gameHistory = new Dictionary<ulong, int>();
+            for (int i = 0; i <= _viewIndex; i++)
+            {
+                ulong h = Zobrist.Compute(_stateHistory[i]);
+                gameHistory.TryGetValue(h, out int c);
+                gameHistory[h] = c + 1;
+            }
+
+            List<SearchResult> topMoves;
+            try
+            {
+                topMoves = await Task.Run(() =>
+                    _engine.FindTopMovesIterative(snapshot, AnalysisDepth, 3, progress, token, gameHistory));
+            }
+            catch (OperationCanceledException)
+            {
+                sw.Stop();
+                IsAnalyzing   = false;
+                AnalyzingText = "";
+                return;
+            }
 
             sw.Stop();
             IsAnalyzing   = false;
             AnalyzingText = "";
 
-            if (!ReferenceEquals(snapshot, _gameState))
+            if (token.IsCancellationRequested || !ReferenceEquals(snapshot, _gameState))
             {
                 if (_pendingAnalysis && IsAutoAnalyzing && !IsGameOver)
                     _ = AnalyzeAsync();
