@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Linq;
 using ChessInsight.Core;
 using ChessInsight.Core.Engine;
@@ -395,6 +395,87 @@ namespace ChessInsight.Tests
 
             Assert.True(scoreCatch < scoreNoCatch,
                 $"Skor kad kralj može stići ({scoreCatch}) mora biti manji od kad ne može ({scoreNoCatch})");
+        }
+
+        // ── Teorija pješačkih završnica: opozicija ───────────────
+
+        [Fact]
+        public void KPK_ClassicDraw_BlackBlocksPawn()
+        {
+            // FEN: 8/3k4/3P4/3K4/8/8/8/8 w - - 0 1
+            // Bijeli Kd5, Pd6, crni Kd7 — bijeli na potezu
+            // Crni kralj direktno blokira pješak (Lucena obrana):
+            //   bkr=6=pr+1, bkc=3=pc, bijeli kralj iza pješaka (wkr=4 < pr=5).
+            // Bijeli ne može napredovati → teorijski remi.
+            var state = FenParser.Parse("8/3k4/3P4/3K4/8/8/8/8 w - - 0 1");
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Test 1: Klasičan remi — crni blokira pješak ══");
+            _output.WriteLine($"  FEN: 8/3k4/3P4/3K4/8/8/8/8 w - - 0 1");
+            _output.WriteLine($"  Bijeli Kd5, Pd6, crni Kd7, bijeli na potezu");
+            _output.WriteLine($"  Rezultat: {score} (očekuj 0)");
+
+            Assert.Equal(0, score);
+        }
+
+        [Fact]
+        public void KPK_WhiteWins_KingOnKeySquare()
+        {
+            // FEN: 8/8/3K4/8/3P4/8/8/3k4 w - - 0 1
+            // Bijeli Kd6, Pd4, crni Kd1 — bijeli na potezu
+            // Bijeli kralj na ključnom polju d6 (pr+2=5, wkr=5, |wkc-pc|=0 ≤ 1).
+            // Crni kralj daleko (Kd1) — van pravila kvadrata.
+            // Bijeli pobjeđuje.
+            var state = FenParser.Parse("8/8/3K4/8/3P4/8/8/3k4 w - - 0 1");
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Test 2: Bijeli pobjeđuje — ključno polje ══");
+            _output.WriteLine($"  FEN: 8/8/3K4/8/3P4/8/8/3k4 w - - 0 1");
+            _output.WriteLine($"  Bijeli Kd6, Pd4, crni Kd1, bijeli na potezu");
+            _output.WriteLine($"  Rezultat: {score} (očekuj > 0)");
+
+            Assert.True(score > 0,
+                $"Bijeli treba pobijediti s kraljem na ključnom polju, dobijen skor: {score}");
+        }
+
+        [Fact]
+        public void KPK_RookPawn_AlwaysDraw()
+        {
+            // FEN: 8/k7/8/8/8/8/P7/K7 w - - 0 1
+            // Rob pješak a2, bijeli Ka1, crni Ka7 — klasičan remi rob-pješaka
+            var state = FenParser.Parse("8/k7/8/8/8/8/P7/K7 w - - 0 1");
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Test 3: Rob-pješak — uvijek remi ══");
+            _output.WriteLine($"  FEN: 8/k7/8/8/8/8/P7/K7 w - - 0 1");
+            _output.WriteLine($"  Bijeli Ka1, Pa2, crni Ka7, bijeli na potezu");
+            _output.WriteLine($"  Rezultat: {score} (očekuj blizu 0, |score| < 200)");
+
+            Assert.True(Math.Abs(score) < 200,
+                $"Rob-pješak treba biti blizu remija, dobijen skor: {score}");
+        }
+
+        [Fact]
+        public void KPK_PawnSquare_KingCannotCatch()
+        {
+            // FEN: 8/8/8/8/8/8/6P1/2K4k w - - 0 1
+            // Bijeli Kc1, Pg2, crni Kh1 — crni kralj van kvadrata pješaka.
+            // atkDist(Kc1 do Pg2) = max(|0-1|, |2-6|) = 4 >= 2 → pravilo kvadrata aktivno.
+            // defDist(Kh1 do g8) = max(|0-7|, |7-6|) = 7 >= stepsLeft=6 → bijeli pobjeđuje.
+            var state = FenParser.Parse("8/8/8/8/8/8/6P1/2K4k w - - 0 1");
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Test 4: Pravilo kvadrata — crni ne može stići ══");
+            _output.WriteLine($"  FEN: 8/8/8/8/8/8/6P1/2K4k w - - 0 1");
+            _output.WriteLine($"  Bijeli Kc1, Pg2, crni Kh1, bijeli na potezu");
+            _output.WriteLine($"  Rezultat: {score} (očekuj > 300)");
+
+            Assert.True(score > 300,
+                $"Bijeli treba imati veliku prednost (pješak trči slobodno), dobijen skor: {score}");
         }
     }
 }

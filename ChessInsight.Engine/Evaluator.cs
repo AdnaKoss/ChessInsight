@@ -189,6 +189,15 @@ namespace ChessInsight.Engine
 
                 if (nonPawnMaterial == 0)
                     score += EvaluateKPvK(state, whitePawns, blackPawns);
+
+                // Teorijski remiji u čistim pješačkim završnicama —
+                // override cijelog skora kada je pozicija teorijski remizirana.
+                if (IsPureKingPawnEndgame(state))
+                {
+                    int? theory = EvaluatePawnEndgameTheory(state);
+                    if (theory.HasValue)
+                        return theory.Value;
+                }
             }
 
             return score;
@@ -526,12 +535,13 @@ namespace ChessInsight.Engine
                 return 0;
 
             // ── 2. Pravilo kvadrata — pješak trči sam ───────────────────────
-            // Branilac mora biti unutar Chebyshev distance od promocionog polja.
+            // Branilac mora biti dovoljno daleko od promocionog polja.
             // Pješak pobijedi ako: atkToMove → defDist ≥ stepsLeft
-            //                      defToMove → defDist > stepsLeft
+            //                      defToMove → defDist ≥ stepsLeft + 2
+            // (defToMove: branilac ima 1 ekstra potez za ući u kvadrat → treba 2 više)
             int defDist = Math.Max(Math.Abs(dkr - 7), Math.Abs(dkc - pc));
             int atkDist = Math.Max(Math.Abs(akr - pr), Math.Abs(akc - pc));
-            int threshold = atkToMove ? stepsLeft : stepsLeft + 1;
+            int threshold = atkToMove ? stepsLeft : stepsLeft + 2;
             // Primijeni samo kada napadački kralj ne može značajno pomoći
             // (daleko je od pješaka), inače je evaluacija složenija
             if (defDist >= threshold && atkDist >= 2)
@@ -545,6 +555,139 @@ namespace ChessInsight.Engine
                 // Siguran override samo ako branilac daleko ili pješak blizu promocije
                 if (defDist >= 3 || pr >= 5)
                     return wPawn ? 700 : -700;
+            }
+
+            return null;
+        }
+
+        // ── Teorija pješačkih završnica ──────────────────────────
+
+        private static bool IsPureKingPawnEndgame(GameState state)
+        {
+            return !state.Board.GetAllPieces().Any(p =>
+                p.Type == PieceType.Queen  ||
+                p.Type == PieceType.Rook   ||
+                p.Type == PieceType.Bishop ||
+                p.Type == PieceType.Knight) &&
+                state.Board.GetAllPieces().Count(p => p.Type == PieceType.Pawn) <= 2;
+        }
+
+        private static bool HasTempo(Piece pawn)
+        {
+            // Pješak još nije pomjerio → može ići 2 polja → bijeli ima tempo potez
+            return pawn.Color == PieceColor.White
+                ? pawn.Position.Row == 1
+                : pawn.Position.Row == 6;
+        }
+
+        // Vraća 0 za teorijski remi, null za neodređeno.
+        // Poziva se samo u čistim pješačkim završnicama (IsPureKingPawnEndgame).
+        private static int? EvaluatePawnEndgameTheory(GameState state)
+        {
+            var allPawns = state.Board.GetAllPieces()
+                               .Where(p => p.Type == PieceType.Pawn).ToList();
+            if (allPawns.Count == 0) return null;
+
+            var whitePawns = allPawns.Where(p => p.Color == PieceColor.White).ToList();
+            var blackPawns = allPawns.Where(p => p.Color == PieceColor.Black).ToList();
+
+            // ── Jedan bijeli pješak, crni bez pješaka ──────────────
+            if (whitePawns.Count == 1 && blackPawns.Count == 0)
+            {
+                var pawn = whitePawns[0];
+                var wk   = state.Board.GetKing(PieceColor.White);
+                var bk   = state.Board.GetKing(PieceColor.Black);
+                if (wk == null || bk == null) return null;
+
+                int pr  = pawn.Position.Row;
+                int pc  = pawn.Position.Column;
+                int wkr = wk.Position.Row;
+                int wkc = wk.Position.Column;
+                int bkr = bk.Position.Row;
+                int bkc = bk.Position.Column;
+                bool rookPawn = pc == 0 || pc == 7;
+
+                // SLUČAJ 1 — Bijeli kralj ispred pješaka, crni ima direktnu opoziciju
+                // Direktna opozicija: kraljevi 2 reda razmaknuti (1 polje između), isti stub.
+                // Bijeli na potezu ne može napredovati → remi.
+                bool kingInFront    = wkr == pr + 1 && wkc == pc;
+                bool blackDirectOpp = bkr == wkr + 2 && bkc == wkc;
+                if (kingInFront && blackDirectOpp && state.CurrentPlayer == PieceColor.White)
+                    return 0;
+                // Nema tempa: isti raspored, crni na potezu, pješak već pomjerio → remi.
+                if (kingInFront && blackDirectOpp &&
+                    state.CurrentPlayer == PieceColor.Black && !HasTempo(pawn))
+                    return 0;
+
+                // SLUČAJ 2 — Crni kralj direktno blokira pješak (Lucena obrana)
+                // Crni kralj na istom stubu, 1 red ispred pješaka.
+                // Bijeli kralj nije na ključnim poljima (pr+2+, ±1 kolona) → remi.
+                // Primjer: bijeli Kd5, Pd6, crni Kd7, bijeli na potezu → remi.
+                bool blackBlocksPawn   = bkc == pc && bkr == pr + 1;
+                bool whiteOnKeySquares = wkr >= pr + 2 && Math.Abs(wkc - pc) <= 1;
+                if (blackBlocksPawn && !whiteOnKeySquares &&
+                    state.CurrentPlayer == PieceColor.White)
+                    return 0;
+
+                // SLUČAJ 3 — Rob-pješak: crni kontroliše promociono ugaono polje
+                if (rookPawn)
+                {
+                    if (bkr == 7 && bkc == pc) return 0;
+                    if (state.CurrentPlayer == PieceColor.Black &&
+                        bkr >= 6 && Math.Abs(bkc - pc) <= 1)
+                        return 0;
+                }
+
+                // SLUČAJ 4 — Crni na stubu pješaka s direktnom opozicijom, bijeli ne predvodi
+                bool whiteLeads    = wkr == pr + 1 && wkc == pc;
+                bool blackColOpp   = bkc == pc && bkr > pr && bkr == wkr + 2;
+                if (!whiteLeads && blackColOpp)
+                    return 0;
+            }
+
+            // ── Jedan crni pješak, bijeli bez pješaka (simetričan) ─
+            if (blackPawns.Count == 1 && whitePawns.Count == 0)
+            {
+                var pawn = blackPawns[0];
+                var bk   = state.Board.GetKing(PieceColor.Black);
+                var wk   = state.Board.GetKing(PieceColor.White);
+                if (wk == null || bk == null) return null;
+
+                // Normalizacija: crni pješak ide prema manjim redovima → invertujemo
+                int pr  = 7 - pawn.Position.Row;
+                int pc  = pawn.Position.Column;
+                int akr = 7 - bk.Position.Row;
+                int akc = bk.Position.Column;
+                int dkr = 7 - wk.Position.Row;
+                int dkc = wk.Position.Column;
+                bool rookPawn = pc == 0 || pc == 7;
+
+                bool kingInFront  = akr == pr + 1 && akc == pc;
+                bool defDirectOpp = dkr == akr + 2 && dkc == akc;
+                if (kingInFront && defDirectOpp && state.CurrentPlayer == PieceColor.Black)
+                    return 0;
+                if (kingInFront && defDirectOpp &&
+                    state.CurrentPlayer == PieceColor.White && !HasTempo(pawn))
+                    return 0;
+
+                bool defBlocksPawn  = dkc == pc && dkr == pr + 1;
+                bool atkOnKeySquare = akr >= pr + 2 && Math.Abs(akc - pc) <= 1;
+                if (defBlocksPawn && !atkOnKeySquare &&
+                    state.CurrentPlayer == PieceColor.Black)
+                    return 0;
+
+                if (rookPawn)
+                {
+                    if (dkr == 7 && dkc == pc) return 0;
+                    if (state.CurrentPlayer == PieceColor.White &&
+                        dkr >= 6 && Math.Abs(dkc - pc) <= 1)
+                        return 0;
+                }
+
+                bool atkLeads   = akr == pr + 1 && akc == pc;
+                bool defColOpp  = dkc == pc && dkr > pr && dkr == akr + 2;
+                if (!atkLeads && defColOpp)
+                    return 0;
             }
 
             return null;
