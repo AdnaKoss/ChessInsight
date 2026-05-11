@@ -281,5 +281,120 @@ namespace ChessInsight.Tests
             var result = engine.FindBestMove(state, depth: 3, gameHistory: history);
             Assert.NotNull(result.BestMove);
         }
+
+        // ── Endgame: opozicija kraljeva ──────────────────────────
+
+        [Fact]
+        public void DirectOpposition_WhiteHasOpposition()
+        {
+            // Bijeli Kd4, crni Kd6 — vertikalna direktna opozicija (jedno polje između)
+            // Crni na potezu → bijeli ima opoziciju → score > 0
+            //
+            // PST provjera (endgame tablica):
+            //   Bijeli Kd4 (row=3, col=3): tableRow=4 → KingEndgame[4][3] = +40
+            //   Crni  Kd6 (row=5, col=3): tableRow=5 → KingEndgame[5][3] = +30
+            //   PST razlika = +10, opozicija = +30 → ukupno +40
+            var board = new Board();
+            board.SetPiece(Square.FromAlgebraic("d4"), new King(PieceColor.White, Square.FromAlgebraic("d4")));
+            board.SetPiece(Square.FromAlgebraic("d6"), new King(PieceColor.Black, Square.FromAlgebraic("d6")));
+
+            var state = new GameState(board, PieceColor.Black); // crni na potezu
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Direktna opozicija — bijeli ima opoziciju ══");
+            _output.WriteLine($"  Pozicija: Kd4 vs Kd6, crni na potezu");
+            _output.WriteLine($"  Skor:     {score} (pozitivno = prednost bijelog)");
+
+            Assert.True(score > 0,
+                $"Bijeli treba imati opozicijsku prednost, dobijen skor: {score}");
+        }
+
+        [Fact]
+        public void DistantOpposition_Detected()
+        {
+            // Bijeli Kd4, crni Kd7 — vertikalna daleka opozicija (dva polja između)
+            // Crni na potezu → bijeli ima daleku opoziciju → score > 0
+            //
+            // PST provjera:
+            //   Bijeli Kd4: tableRow=4 → KingEndgame[4][3] = +40
+            //   Crni  Kd7 (row=6, col=3): tableRow=6 → KingEndgame[6][3] =  0
+            //   PST razlika = +40, opozicija = +15 → ukupno +55
+            var board = new Board();
+            board.SetPiece(Square.FromAlgebraic("d4"), new King(PieceColor.White, Square.FromAlgebraic("d4")));
+            board.SetPiece(Square.FromAlgebraic("d7"), new King(PieceColor.Black, Square.FromAlgebraic("d7")));
+
+            var state = new GameState(board, PieceColor.Black);
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Daleka opozicija — bijeli ima prednost ══");
+            _output.WriteLine($"  Pozicija: Kd4 vs Kd7, crni na potezu");
+            _output.WriteLine($"  Skor:     {score} (pozitivno = prednost bijelog)");
+
+            Assert.True(score > 0,
+                $"Bijeli treba imati prednost daleke opozicije, dobijen skor: {score}");
+        }
+
+        // ── Endgame: kvadrat pješaka ─────────────────────────────
+
+        [Fact]
+        public void PawnSquare_KingCannotCatch()
+        {
+            // Bijeli Kh1, bijeli Ph5, crni Ka1 — bijeli na potezu
+            // Crni kralj je IZVAN kvadrata pješaka → pješak prolazi slobodno
+            //
+            // stepsToPromotion = 7 - 4 = 3
+            // kingDist = max(|0-4|, |0-7|) = 7  → 7 > 3 → izvan kvadrata
+            // bonus = 60 + 3*15 = 105
+            var board = new Board();
+            board.SetPiece(Square.FromAlgebraic("h1"), new King (PieceColor.White, Square.FromAlgebraic("h1")));
+            board.SetPiece(Square.FromAlgebraic("h5"), new Pawn (PieceColor.White, Square.FromAlgebraic("h5")));
+            board.SetPiece(Square.FromAlgebraic("a1"), new King (PieceColor.Black, Square.FromAlgebraic("a1")));
+
+            var state = new GameState(board, PieceColor.White);
+            var eval  = new Evaluator();
+            int score = eval.Evaluate(state);
+
+            _output.WriteLine("══ Kvadrat pješaka — kralj ne može stići ══");
+            _output.WriteLine($"  Pozicija: Kh1+Ph5 vs Ka1, bijeli na potezu");
+            _output.WriteLine($"  Skor:     {score} (očekivano > 100)");
+
+            Assert.True(score > 100,
+                $"Pješak treba imati visok skor jer kralj ne može stići, dobijen: {score}");
+        }
+
+        [Fact]
+        public void PawnSquare_KingCanCatch()
+        {
+            // Bijeli Kh1, bijeli Ph5, crni Kf4 — crni na potezu
+            // Crni kralj JE unutar kvadrata → nema bonus za slobodan prolaz
+            //
+            // stepsToPromotion = 3, kingDist = max(|3-4|, |5-7|) = 2
+            // 2 > 3+1 = 4? NE → kralj može stići → bez pawn-square bonusa
+            // Ovaj skor mora biti MANJI od prethodnog testa
+            var board = new Board();
+            board.SetPiece(Square.FromAlgebraic("h1"), new King (PieceColor.White, Square.FromAlgebraic("h1")));
+            board.SetPiece(Square.FromAlgebraic("h5"), new Pawn (PieceColor.White, Square.FromAlgebraic("h5")));
+            board.SetPiece(Square.FromAlgebraic("f4"), new King (PieceColor.Black, Square.FromAlgebraic("f4")));
+
+            var stateCannotCatch = new GameState(new Board(), PieceColor.White); // referenca
+            var board2 = new Board();
+            board2.SetPiece(Square.FromAlgebraic("h1"), new King(PieceColor.White, Square.FromAlgebraic("h1")));
+            board2.SetPiece(Square.FromAlgebraic("h5"), new Pawn(PieceColor.White, Square.FromAlgebraic("h5")));
+            board2.SetPiece(Square.FromAlgebraic("a1"), new King(PieceColor.Black, Square.FromAlgebraic("a1")));
+
+            var eval = new Evaluator();
+            int scoreCatch    = eval.Evaluate(new GameState(board,  PieceColor.Black));
+            int scoreNoCatch  = eval.Evaluate(new GameState(board2, PieceColor.White));
+
+            _output.WriteLine("══ Kvadrat pješaka — usporedba ══");
+            _output.WriteLine($"  Kf4 (može stići):     skor = {scoreCatch}");
+            _output.WriteLine($"  Ka1 (ne može stići):  skor = {scoreNoCatch}");
+            _output.WriteLine($"  Razlika (pawn-square bonus): {scoreNoCatch - scoreCatch}");
+
+            Assert.True(scoreCatch < scoreNoCatch,
+                $"Skor kad kralj može stići ({scoreCatch}) mora biti manji od kad ne može ({scoreNoCatch})");
+        }
     }
 }

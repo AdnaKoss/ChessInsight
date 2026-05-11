@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Media;
 using System.Collections.Generic;
 using ChessInsight.Core;
@@ -123,6 +124,188 @@ namespace ChessInsight.UI.ViewModels
             DepthText = "—"; NodesText = "—"; TimeText = "—";
 
             RefreshBoard();
+        }
+
+        // ── Učitaj PGN partiju ──────────────────────────────────
+
+        public void LoadPgn(string pgn)
+        {
+            var moves = ParsePgnMoves(pgn);
+            if (moves.Count == 0)
+                throw new ArgumentException("Nije pronađen nijedan potez u PGN tekstu.");
+
+            StopAutoAnalysis();
+
+            // PGN može imati [FEN "..."] tag za nestandardni početak
+            var fenTag = Regex.Match(pgn, @"\[FEN\s+""([^""]+)""\]");
+            GameState startState = fenTag.Success
+                ? FenParser.Parse(fenTag.Groups[1].Value)
+                : new GameState();
+
+            _gameState = startState;
+            _selectedIndex = null;
+            _selectedPieceMoves.Clear();
+
+            _stateHistory.Clear();
+            _stateHistory.Add(_gameState);
+            _moveLog.Clear();
+            _viewIndex = 0;
+            MoveHistory.Clear();
+
+            foreach (var san in moves)
+            {
+                var move = FindMoveBySan(san, _gameState);
+                if (move == null)
+                    throw new ArgumentException($"Nepoznat potez: \"{san}\"");
+                FastCommitMove(move);
+            }
+
+            // Postavi navigaciju na početak
+            _viewIndex = 0;
+            _gameState = _stateHistory[0];
+            _selectedIndex = null;
+            _selectedPieceMoves.Clear();
+
+            ScoreText = "—"; ScoreLabelText = "—";
+            Move1Text = "—"; Score1Text = "";
+            Move2Text = "—"; Score2Text = "";
+            Move3Text = "—"; Score3Text = "";
+            DepthText = "—"; NodesText = "—"; TimeText = "—";
+
+            RebuildMoveHistory();
+            RefreshBoard();
+            UpdateCanNavigate();
+        }
+
+        private void FastCommitMove(Move move)
+        {
+            var stateBefore = _gameState;
+            _gameState = _gameState.ApplyMove(move);
+            var nextMoves = _generator.GetLegalMoves(_gameState);
+            _gameState.UpdateStatus(nextMoves);
+            string notation = FormatMoveNotation(stateBefore, move);
+            _stateHistory.Add(_gameState);
+            _moveLog.Add((move, notation, stateBefore.CurrentPlayer, stateBefore.FullMoveNumber));
+            _viewIndex++;
+        }
+
+        private Move? FindMoveBySan(string san, GameState state)
+        {
+            var legalMoves = _generator.GetLegalMoves(state);
+
+            // Strip check/mate markers
+            san = san.TrimEnd('+', '#');
+            // Strip NAGs ($1, $2 …)
+            san = Regex.Replace(san, @"\$\d+", "").Trim();
+
+            if (san.Length == 0) return null;
+
+            // Castling (accept both O and 0)
+            if (san is "O-O-O" or "0-0-0")
+                return legalMoves.FirstOrDefault(m => m.Type == MoveType.CastleQueenside);
+            if (san is "O-O" or "0-0")
+                return legalMoves.FirstOrDefault(m => m.Type == MoveType.CastleKingside);
+
+            // Promotion: =Q or trailing Q without '='
+            PieceType? promotionPiece = null;
+            if (san.Length >= 2 && san[^1] is 'Q' or 'R' or 'B' or 'N')
+            {
+                if (san.Length >= 3 && san[^2] == '=')
+                {
+                    promotionPiece = PgnLetterToPiece(san[^1]);
+                    san = san[..^2];
+                }
+                else if (san.Length >= 3 && char.IsDigit(san[^2]))
+                {
+                    // e8Q (no equals sign)
+                    promotionPiece = PgnLetterToPiece(san[^1]);
+                    san = san[..^1];
+                }
+            }
+
+            // Destination square — always the last 2 chars
+            if (san.Length < 2) return null;
+            string destStr = san[^2..];
+            int destCol = destStr[0] - 'a';
+            int destRow = destStr[1] - '1';
+            if (destCol < 0 || destCol > 7 || destRow < 0 || destRow > 7) return null;
+            san = san[..^2];
+
+            // Strip capture marker
+            if (san.Length > 0 && san[^1] == 'x')
+                san = san[..^1];
+
+            // Piece type — uppercase K Q R B N; else pawn
+            PieceType pieceType = PieceType.Pawn;
+            if (san.Length > 0 && san[0] is 'K' or 'Q' or 'R' or 'B' or 'N')
+            {
+                pieceType = PgnLetterToPiece(san[0]);
+                san = san[1..];
+            }
+
+            // Remaining chars are disambiguation (file, rank, or both)
+            string disambig = san;
+
+            return legalMoves.FirstOrDefault(m =>
+            {
+                if (m.To.Row != destRow || m.To.Column != destCol) return false;
+
+                var piece = state.Board.GetPiece(m.From);
+                if (piece == null || piece.Type != pieceType) return false;
+
+                if (promotionPiece.HasValue)
+                {
+                    if (m.Type != MoveType.PawnPromotion || m.PromotionPiece != promotionPiece) return false;
+                }
+
+                if (disambig.Length > 0)
+                {
+                    int idx = 0;
+                    if (idx < disambig.Length && char.IsLower(disambig[idx]))
+                    {
+                        if (m.From.Column != disambig[idx] - 'a') return false;
+                        idx++;
+                    }
+                    if (idx < disambig.Length && char.IsDigit(disambig[idx]))
+                    {
+                        if (m.From.Row != disambig[idx] - '1') return false;
+                    }
+                }
+
+                return true;
+            });
+        }
+
+        private static PieceType PgnLetterToPiece(char c) => c switch
+        {
+            'K' => PieceType.King,
+            'Q' => PieceType.Queen,
+            'R' => PieceType.Rook,
+            'B' => PieceType.Bishop,
+            'N' => PieceType.Knight,
+            _   => PieceType.Pawn
+        };
+
+        private static List<string> ParsePgnMoves(string pgn)
+        {
+            // Remove headers [Tag "value"]
+            pgn = Regex.Replace(pgn, @"\[[^\]]*\]", "");
+            // Remove comments { ... }
+            pgn = Regex.Replace(pgn, @"\{[^}]*\}", "");
+            // Remove variations — repeat to handle up to 5 levels of nesting
+            for (int i = 0; i < 6; i++)
+                pgn = Regex.Replace(pgn, @"\([^()]*\)", "");
+            // Remove NAGs
+            pgn = Regex.Replace(pgn, @"\$\d+", "");
+            // Remove result markers
+            pgn = Regex.Replace(pgn, @"\b(1-0|0-1|1/2-1/2|\*)\s*$", "");
+            // Remove move numbers (1. 1... 12.)
+            pgn = Regex.Replace(pgn, @"\d+\.+", "");
+
+            return pgn
+                .Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(t => t.Length > 0 && char.IsLetter(t[0]))
+                .ToList();
         }
 
         // ── Osvježi prikaz table ────────────────────────────────

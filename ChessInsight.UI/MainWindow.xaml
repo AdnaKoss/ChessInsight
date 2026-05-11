@@ -3,88 +3,59 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:ChessInsight.UI.Views"
         Title="ChessInsight — Analiza šahovskih pozicija"
-        Width="1100" Height="820"
-        MinWidth="900" MinHeight="680"
+        Width="1050" Height="750"
+        MinWidth="850" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgApp}"
         KeyDown="Window_KeyDown">
 
     <Grid>
         <Grid.RowDefinitions>
-            <!-- Row 0: Topbar — logo + FEN + Učitaj -->
-            <RowDefinition Height="52"/>
-            <!-- Row 1: Tabla centrirana -->
+            <!-- Naslov -->
+            <RowDefinition Height="48"/>
+            <!-- Glavni sadržaj: tabla + panel -->
             <RowDefinition Height="*"/>
-            <!-- Row 2: 4 horizontalne kartice -->
+            <!-- FEN traka -->
             <RowDefinition Height="Auto"/>
-            <!-- Row 3: Bottombar — navigacija + ANALIZIRAJ -->
+            <!-- Toolbar -->
             <RowDefinition Height="52"/>
         </Grid.RowDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════
-             Red 0 — Topbar: logo  |  FEN input  |  Učitaj
+             Red 0 — Naslov aplikacije
              ═══════════════════════════════════════════════════════ -->
-        <Border Grid.Row="0"
-                Background="{StaticResource BgPanel}"
-                BorderBrush="{StaticResource BorderColor}"
-                BorderThickness="0,0,0,1">
-            <Grid Margin="18,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Logo -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="0,0,24,0">
-                    <TextBlock Text="♟" FontSize="20"
-                               Foreground="{StaticResource TextAccent}"
-                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="ChessInsight" FontSize="16" FontWeight="Bold"
-                               Foreground="{StaticResource TextPrimary}"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <!-- FEN traka -->
-                <Grid Grid.Column="1" VerticalAlignment="Center">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="FEN:"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="12" FontFamily="Consolas"
-                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox Grid.Column="1"
-                             x:Name="TxtFen"
-                             Style="{StaticResource InputBox}"
-                             Text="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-                             VerticalAlignment="Center"
-                             KeyDown="TxtFen_KeyDown"
-                             ToolTip="Unesite FEN notaciju i pritisnite Enter"/>
-                </Grid>
-
-                <!-- Učitaj -->
-                <Button Grid.Column="2"
-                        Content="Učitaj"
-                        Style="{StaticResource BtnBase}"
-                        Margin="10,0,0,0"
-                        Click="BtnLoadFen_Click"
-                        ToolTip="Učitaj poziciju iz FEN stringa"/>
-            </Grid>
+        <Border Grid.Row="0" Background="{StaticResource BgToolbar}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                        Margin="18,0">
+                <TextBlock Text="♟" FontSize="22" Foreground="{StaticResource TextAccent}"
+                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBlock Text="ChessInsight" FontSize="18" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                <TextBlock Text="  —  Analiza šahovskih pozicija"
+                           FontSize="13" Foreground="{StaticResource TextSecondary}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
         </Border>
 
         <!-- ═══════════════════════════════════════════════════════
-             Red 1 — Šahovska tabla, centrirana
+             Red 1 — Tabla (lijevo) + Panel (desno)
              ═══════════════════════════════════════════════════════ -->
         <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!-- Tabla — kvadratna, rasteže se -->
+                <ColumnDefinition Width="*"/>
+                <!-- Separator -->
+                <ColumnDefinition Width="1"/>
+                <!-- Analitički panel — fiksna širina -->
+                <ColumnDefinition Width="290"/>
+            </Grid.ColumnDefinitions>
 
-            <Viewbox Stretch="Uniform"
+            <!-- ── Lijevo: šahovska tabla (Viewbox čuva omjer 1:1) ── -->
+            <Viewbox Grid.Column="0"
+                     Stretch="Uniform"
+                     Margin="16"
                      HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     Margin="20,16,20,8">
-                <!-- Fiksna unutarnja veličina — Viewbox skalira proporcionalno -->
+                     VerticalAlignment="Center">
                 <Grid Width="520" Height="520">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="500"/>
@@ -106,10 +77,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding}"
-                                           Foreground="{StaticResource TextSecondary}"
-                                           FontSize="11"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -128,396 +97,374 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding}"
-                                           Foreground="{StaticResource TextSecondary}"
-                                           FontSize="11"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </Grid>
             </Viewbox>
 
-            <!-- Indikator: ko je na potezu (donje središte) -->
-            <Border HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                    Margin="0,0,0,6"
-                    Padding="12,5"
-                    Background="{StaticResource BgCard}"
-                    BorderBrush="{StaticResource BorderColor}"
-                    BorderThickness="1"
-                    CornerRadius="6">
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="11" Height="11"
-                             Fill="{Binding SideToMoveFill}"
-                             Stroke="{StaticResource BorderColor}"
-                             StrokeThickness="1.5"
-                             VerticalAlignment="Center"
-                             Margin="0,0,7,0"/>
-                    <TextBlock Text="{Binding GameStatusText}"
-                               Foreground="{StaticResource TextPrimary}"
-                               FontSize="12"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-        </Grid>
+            <!-- ── Separator ──────────────────────────────────── -->
+            <Rectangle Grid.Column="1" Fill="{StaticResource BorderColor}"/>
 
-        <!-- ═══════════════════════════════════════════════════════
-             Red 2 — 4 horizontalne kartice
-             ═══════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="2" Margin="12,0,12,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- ── Kartica 1: Evaluacija ──────────────────────── -->
-            <Border Grid.Column="0"
-                    Background="{StaticResource BgCard}"
-                    BorderBrush="{StaticResource BorderColor}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="14,12">
+            <!-- ── Desno: Analitički panel ────────────────────── -->
+            <Border Grid.Column="2" Background="{StaticResource BgPanel}">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>  <!-- Evaluacija -->
+                        <RowDefinition Height="Auto"/>  <!-- Loading indicator -->
+                        <RowDefinition Height="Auto"/>  <!-- Top 3 poteza -->
+                        <RowDefinition Height="Auto"/>  <!-- Statistike -->
+                        <RowDefinition Height="*"/>     <!-- Istorija poteza -->
+                        <RowDefinition Height="Auto"/>  <!-- Dugme Analiziraj -->
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0"
-                               Text="EVALUACIJA"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="10" FontWeight="Bold"
-                               Margin="0,0,0,8"/>
-
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,2">
-                        <TextBlock Text="{Binding ScoreText}"
-                                   Foreground="{StaticResource TextAccent}"
-                                   FontSize="26" FontWeight="Bold"
-                                   FontFamily="Consolas"/>
-                        <TextBlock Text="{Binding ScoreLabelText, StringFormat='  {0}'}"
-                                   Foreground="{StaticResource TextSecondary}"
-                                   FontSize="12"
-                                   VerticalAlignment="Bottom"
-                                   Margin="0,0,0,4"/>
-                    </StackPanel>
-
-                    <TextBlock Grid.Row="2"
-                               Text="{Binding GameStatusText}"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="12"
-                               Margin="0,0,0,8"/>
+                    <!-- Evaluacija pozicije -->
+                    <Border Grid.Row="0" Background="{StaticResource BgCard}"
+                            Margin="12,14,12,0" CornerRadius="6" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="EVALUACIJA POZICIJE"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       FontSize="10" FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="{Binding ScoreText}"
+                                           Foreground="{StaticResource TextAccent}"
+                                           FontSize="28" FontWeight="Bold"
+                                           FontFamily="Consolas"/>
+                                <TextBlock Text="{Binding ScoreLabelText, StringFormat='  {0}'}"
+                                           Foreground="{StaticResource TextSecondary}"
+                                           FontSize="13"
+                                           VerticalAlignment="Bottom"
+                                           Margin="0,0,0,4"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding GameStatusText}"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Loading indicator -->
-                    <Border Grid.Row="3"
-                            Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}"
-                            Margin="0,0,0,4">
+                    <Border Grid.Row="1"
+                            Margin="12,6,12,0"
+                            Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
                             <ProgressBar IsIndeterminate="True"
-                                         Height="2"
+                                         Height="3"
                                          Foreground="{StaticResource MoveColorBest}"
                                          Background="Transparent"
                                          BorderThickness="0"/>
                             <TextBlock Text="{Binding AnalyzingText}"
                                        Foreground="{StaticResource TextSecondary}"
-                                       FontSize="9"
+                                       FontSize="10"
                                        HorizontalAlignment="Right"
-                                       Margin="0,2,0,0"/>
+                                       Margin="0,3,0,0"/>
                         </StackPanel>
                     </Border>
-                </Grid>
-            </Border>
 
-            <!-- ── Kartica 2: Top 3 poteza ────────────────────── -->
-            <Border Grid.Column="2"
-                    Background="{StaticResource BgCard}"
-                    BorderBrush="{StaticResource BorderColor}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="14,12">
-                <StackPanel>
-                    <TextBlock Text="TOP 3 POTEZA"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="10" FontWeight="Bold"
-                               Margin="0,0,0,8"/>
+                    <!-- Top 3 poteza -->
+                    <Border Grid.Row="2" Background="{StaticResource BgCard}"
+                            Margin="12,10,12,0" CornerRadius="6" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="TOP 3 POTEZA"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       FontSize="10" FontWeight="Bold"
+                                       Margin="0,0,0,10"/>
 
-                    <!-- Potez 1 — Najbolji -->
-                    <Border Background="#1A1D9E75" CornerRadius="6"
-                            Padding="10,7" Margin="0,0,0,5">
+                            <!-- Potez 1 — Najbolji -->
+                            <Border Background="#1A1D9E75" CornerRadius="4"
+                                    Padding="10,7" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="★ 1."
+                                               Foreground="{StaticResource MoveColorBest}"
+                                               FontWeight="Bold" FontSize="13"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Move1Text}"
+                                               Foreground="{StaticResource TextPrimary}"
+                                               FontSize="13" FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Score1Text}"
+                                               Foreground="{StaticResource MoveColorBest}"
+                                               FontSize="12" FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Potez 2 -->
+                            <Border Background="#0D4A4A4A" CornerRadius="4"
+                                    Padding="10,7" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="  2."
+                                               Foreground="{StaticResource TextSecondary}"
+                                               FontSize="13" VerticalAlignment="Center"
+                                               Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Move2Text}"
+                                               Foreground="{StaticResource TextPrimary}"
+                                               FontSize="13" FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Score2Text}"
+                                               Foreground="{StaticResource TextSecondary}"
+                                               FontSize="12" FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Potez 3 -->
+                            <Border Background="#0D4A4A4A" CornerRadius="4"
+                                    Padding="10,7">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="  3."
+                                               Foreground="{StaticResource TextSecondary}"
+                                               FontSize="13" VerticalAlignment="Center"
+                                               Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Move3Text}"
+                                               Foreground="{StaticResource TextPrimary}"
+                                               FontSize="13" FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Score3Text}"
+                                               Foreground="{StaticResource TextSecondary}"
+                                               FontSize="12" FontFamily="Consolas"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Statistike -->
+                    <Border Grid.Row="3" Background="{StaticResource BgCard}"
+                            Margin="12,8,12,0" CornerRadius="6" Padding="12,8">
+                        <StackPanel>
+                            <TextBlock Text="STATISTIKE"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       FontSize="10" FontWeight="Bold"
+                                       Margin="0,0,0,6"/>
+
+                            <Grid Margin="0,0,0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Dubina pretrage"
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding DepthText}"
+                                           Foreground="{StaticResource TextPrimary}"
+                                           FontSize="11" FontFamily="Consolas"/>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Pregledani čvorovi"
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding NodesText}"
+                                           Foreground="{StaticResource TextPrimary}"
+                                           FontSize="11" FontFamily="Consolas"/>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Vrijeme analize"
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding TimeText}"
+                                           Foreground="{StaticResource TextPrimary}"
+                                           FontSize="11" FontFamily="Consolas"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Algoritam"
+                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="Alpha-Beta"
+                                           Foreground="{StaticResource TextPrimary}"
+                                           FontSize="11" FontFamily="Consolas"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Istorija poteza -->
+                    <Border Grid.Row="4" Background="{StaticResource BgCard}"
+                            Margin="12,8,12,0" CornerRadius="6" Padding="12,10"
+                            MinHeight="120">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="★ 1."
-                                       Foreground="{StaticResource MoveColorBest}"
-                                       FontWeight="Bold" FontSize="13"
-                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding Move1Text}"
-                                       Foreground="{StaticResource TextPrimary}"
-                                       FontSize="13" FontFamily="Consolas"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="{Binding Score1Text}"
-                                       Foreground="{StaticResource MoveColorBest}"
-                                       FontSize="12" FontFamily="Consolas"
-                                       VerticalAlignment="Center"/>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="ISTORIJA POTEZA"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       FontSize="10" FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+
+                            <ScrollViewer Grid.Row="1"
+                                          x:Name="MoveHistoryScroller"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding MoveHistory}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,1">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="28"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Number, StringFormat='{}{0}.'}"
+                                                           Foreground="{StaticResource TextSecondary}"
+                                                           FontSize="12" FontFamily="Consolas"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding WhiteMove}"
+                                                           Foreground="{StaticResource TextPrimary}"
+                                                           FontSize="12" FontFamily="Consolas"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding BlackMove}"
+                                                           Foreground="{StaticResource TextPrimary}"
+                                                           FontSize="12" FontFamily="Consolas"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </Grid>
                     </Border>
 
-                    <!-- Potez 2 -->
-                    <Border Background="#0D242424" CornerRadius="6"
-                            Padding="10,7" Margin="0,0,0,5">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="  2."
-                                       Foreground="{StaticResource TextSecondary}"
-                                       FontSize="13" VerticalAlignment="Center"
-                                       Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding Move2Text}"
-                                       Foreground="{StaticResource TextPrimary}"
-                                       FontSize="13" FontFamily="Consolas"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="{Binding Score2Text}"
-                                       Foreground="{StaticResource TextSecondary}"
-                                       FontSize="12" FontFamily="Consolas"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Potez 3 -->
-                    <Border Background="#0D242424" CornerRadius="6"
-                            Padding="10,7">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="  3."
-                                       Foreground="{StaticResource TextSecondary}"
-                                       FontSize="13" VerticalAlignment="Center"
-                                       Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding Move3Text}"
-                                       Foreground="{StaticResource TextPrimary}"
-                                       FontSize="13" FontFamily="Consolas"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="{Binding Score3Text}"
-                                       Foreground="{StaticResource TextSecondary}"
-                                       FontSize="12" FontFamily="Consolas"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
-                    </Border>
-                </StackPanel>
-            </Border>
-
-            <!-- ── Kartica 3: Statistike ──────────────────────── -->
-            <Border Grid.Column="4"
-                    Background="{StaticResource BgCard}"
-                    BorderBrush="{StaticResource BorderColor}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="14,12">
-                <StackPanel>
-                    <TextBlock Text="STATISTIKE"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="10" FontWeight="Bold"
-                               Margin="0,0,0,8"/>
-
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Dubina pretrage"
-                                   Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding DepthText}"
-                                   Foreground="{StaticResource TextPrimary}"
-                                   FontSize="11" FontFamily="Consolas"/>
-                    </Grid>
-
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Pregledani čvorovi"
-                                   Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding NodesText}"
-                                   Foreground="{StaticResource TextPrimary}"
-                                   FontSize="11" FontFamily="Consolas"/>
-                    </Grid>
-
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Vrijeme analize"
-                                   Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding TimeText}"
-                                   Foreground="{StaticResource TextPrimary}"
-                                   FontSize="11" FontFamily="Consolas"/>
-                    </Grid>
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Algoritam"
-                                   Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="Alpha-Beta"
-                                   Foreground="{StaticResource TextPrimary}"
-                                   FontSize="11" FontFamily="Consolas"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- ── Kartica 4: Istorija poteza ─────────────────── -->
-            <Border Grid.Column="6"
-                    Background="{StaticResource BgCard}"
-                    BorderBrush="{StaticResource BorderColor}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="14,12">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0"
-                               Text="ISTORIJA POTEZA"
-                               Foreground="{StaticResource TextSecondary}"
-                               FontSize="10" FontWeight="Bold"
-                               Margin="0,0,0,8"/>
-
-                    <ScrollViewer Grid.Row="1"
-                                  x:Name="MoveHistoryScroller"
-                                  MaxHeight="120"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{Binding MoveHistory}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="26"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0"
-                                                   Text="{Binding Number, StringFormat='{}{0}.'}"
-                                                   Foreground="{StaticResource TextSecondary}"
-                                                   FontSize="12" FontFamily="Consolas"/>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding WhiteMove}"
-                                                   Foreground="{StaticResource TextPrimary}"
-                                                   FontSize="12" FontFamily="Consolas"
-                                                   FontWeight="SemiBold"/>
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{Binding BlackMove}"
-                                                   Foreground="{StaticResource TextPrimary}"
-                                                   FontSize="12" FontFamily="Consolas"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                    <!-- Dugme Analizator start/stop -->
+                    <Button Grid.Row="5"
+                            x:Name="BtnAnalyze"
+                            Content="{Binding AnalyzeBtnText}"
+                            Margin="12,10,12,12"
+                            Height="42"
+                            Click="BtnAnalyze_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource BtnAnalyze}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAutoAnalyzing}" Value="True">
+                                        <Setter Property="Background" Value="#8B1A1A"/>
+                                        <Setter Property="BorderBrush" Value="#C0392B"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </Grid>
             </Border>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════════════
-             Red 3 — Bottombar: navigacija (lijevo) + ANALIZIRAJ (desno)
+             Red 2 — FEN traka
              ═══════════════════════════════════════════════════════ -->
-        <Border Grid.Row="3"
-                Background="{StaticResource BgPanel}"
+        <Border Grid.Row="2" Background="{StaticResource BgToolbar}"
                 BorderBrush="{StaticResource BorderColor}"
                 BorderThickness="0,1,0,0">
-            <Grid Margin="12,0">
+            <Grid Margin="12,8">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-
-                <!-- Navigacijska dugmad -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnBack"
-                            Content="◀  Nazad"
-                            Style="{StaticResource BtnBase}"
-                            Click="BtnBack_Click"
-                            IsEnabled="{Binding CanGoBack}"
-                            ToolTip="Vrati jedan potez unazad"
-                            Margin="0,0,6,0"/>
-                    <Button x:Name="BtnForward"
-                            Content="Naprijed  ▶"
-                            Style="{StaticResource BtnBase}"
-                            Click="BtnForward_Click"
-                            IsEnabled="{Binding CanGoForward}"
-                            ToolTip="Idi jedan potez naprijed"
-                            Margin="0,0,14,0"/>
-                    <Button x:Name="BtnFlip"
-                            Content="⟳  Okreni"
-                            Style="{StaticResource BtnBase}"
-                            Click="BtnFlip_Click"
-                            ToolTip="Obrni orijentaciju table"
-                            Margin="0,0,6,0"/>
-                    <Button x:Name="BtnReset"
-                            Content="↺  Resetuj"
-                            Style="{StaticResource BtnBase}"
-                            Click="BtnReset_Click"
-                            ToolTip="Vrati na početnu poziciju"
-                            Margin="0,0,6,0"/>
-                    <Button x:Name="BtnSetupPosition"
-                            Content="✎  Postavi Figuru"
-                            Style="{StaticResource BtnBase}"
-                            Click="BtnSetupPosition_Click"
-                            ToolTip="Ručno postavi figure na ploču"/>
-                </StackPanel>
-
-                <!-- ANALIZIRAJ dugme -->
-                <Button Grid.Column="1"
-                        x:Name="BtnAnalyze"
-                        Content="{Binding AnalyzeBtnText}"
-                        Width="180" Height="36"
-                        Click="BtnAnalyze_Click">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource BtnAnalyze}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsAutoAnalyzing}" Value="True">
-                                    <Setter Property="Background"  Value="#B83232"/>
-                                    <Setter Property="BorderBrush" Value="#B83232"/>
-                                    <Setter Property="Foreground"  Value="#E8E8E8"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                <TextBlock Grid.Column="0" Text="FEN:"
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12" FontFamily="Consolas"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox Grid.Column="1"
+                         x:Name="TxtFen"
+                         Style="{StaticResource InputBox}"
+                         Text="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                         VerticalAlignment="Center"
+                         KeyDown="TxtFen_KeyDown"
+                         ToolTip="Unesite FEN notaciju i pritisnite Enter"/>
+                <Button Grid.Column="2"
+                        Content="Učitaj"
+                        Style="{StaticResource BtnBase}"
+                        Margin="8,0,0,0"
+                        Click="BtnLoadFen_Click"
+                        ToolTip="Učitaj poziciju iz FEN stringa"/>
             </Grid>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════
+             Red 3 — Toolbar (donji)
+             ═══════════════════════════════════════════════════════ -->
+        <Border Grid.Row="3" Background="{StaticResource BgToolbar}"
+                BorderBrush="{StaticResource BorderColor}"
+                BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="12,0">
+                <Button x:Name="BtnBack"
+                        Content="◀  Nazad"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnBack_Click"
+                        IsEnabled="{Binding CanGoBack}"
+                        ToolTip="Vrati jedan potez unazad"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="BtnForward"
+                        Content="Naprijed  ▶"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnForward_Click"
+                        IsEnabled="{Binding CanGoForward}"
+                        ToolTip="Idi jedan potez naprijed"
+                        Margin="0,0,16,0"/>
+                <Button x:Name="BtnFlip"
+                        Content="⟳  Okreni Ploču"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnFlip_Click"
+                        ToolTip="Obrni orijentaciju table"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="BtnReset"
+                        Content="↺  Resetuj"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnReset_Click"
+                        ToolTip="Vrati na početnu poziciju"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="BtnSetupPosition"
+                        Content="✎  Postavi Figuru"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnSetupPosition_Click"
+                        ToolTip="Ručno postavi figure na ploču"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="BtnLoadPgn"
+                        Content="📄  PGN"
+                        Style="{StaticResource BtnBase}"
+                        Click="BtnLoadPgn_Click"
+                        ToolTip="Učitaj šahovsku partiju iz PGN notacije"/>
+            </StackPanel>
         </Border>
 
     </Grid>

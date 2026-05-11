@@ -10,6 +10,7 @@
 
         <!-- ── Carbon & Ice paleta ───────────────────────────────── -->
         <SolidColorBrush x:Key="BgApp"         Color="#141414"/>
+        <SolidColorBrush x:Key="BgTopbar"      Color="#0E0E0E"/>
         <SolidColorBrush x:Key="BgPanel"       Color="#1C1C1C"/>
         <SolidColorBrush x:Key="BgCard"        Color="#242424"/>
         <SolidColorBrush x:Key="BgInput"       Color="#1C1C1C"/>
@@ -19,13 +20,13 @@
         <SolidColorBrush x:Key="TextSecondary" Color="#888780"/>
         <SolidColorBrush x:Key="TextAccent"    Color="#85B7EB"/>
 
-        <!-- rgba(255,255,255,0.08) = #14FFFFFF -->
+        <!-- rgba(255,255,255,0.08) -->
         <SolidColorBrush x:Key="BorderColor"   Color="#14FFFFFF"/>
 
         <!-- Kvalitet poteza -->
-        <SolidColorBrush x:Key="MoveColorBrilliant"  Color="#1D9E75"/>
-        <SolidColorBrush x:Key="MoveColorGood"        Color="#0F6E56"/>
-        <SolidColorBrush x:Key="MoveColorBest"        Color="#1D9E75"/>
+        <SolidColorBrush x:Key="MoveColorBrilliant"  Color="#2ECC71"/>
+        <SolidColorBrush x:Key="MoveColorGood"        Color="#27AE60"/>
+        <SolidColorBrush x:Key="MoveColorBest"        Color="#2ECC71"/>
         <SolidColorBrush x:Key="MoveColorLegal"       Color="#C8A84B"/>
         <SolidColorBrush x:Key="MoveColorInaccuracy"  Color="#85B7EB"/>
         <SolidColorBrush x:Key="MoveColorMistake"     Color="#EF9F27"/>
@@ -36,7 +37,7 @@
         <SolidColorBrush x:Key="SquareLight"   Color="#BABABA"/>
         <SolidColorBrush x:Key="SquareDark"    Color="#3A3A3A"/>
 
-        <!-- ── BtnBase: transparentno, rgba(255,255,255,0.15) border ── -->
+        <!-- ── BtnBase ────────────────────────────────────────────── -->
         <Style x:Key="BtnBase" TargetType="Button">
             <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
             <Setter Property="Background"      Value="Transparent"/>
@@ -72,11 +73,11 @@
             </Setter>
         </Style>
 
-        <!-- ── BtnAnalyze: accent plava, tamni tekst ─────────────── -->
+        <!-- ── BtnAnalyze: zelena ─────────────────────────────────── -->
         <Style x:Key="BtnAnalyze" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-            <Setter Property="Background"  Value="#85B7EB"/>
+            <Setter Property="Background"  Value="#2ECC71"/>
             <Setter Property="Foreground"  Value="#141414"/>
-            <Setter Property="BorderBrush" Value="#85B7EB"/>
+            <Setter Property="BorderBrush" Value="#2ECC71"/>
             <Setter Property="FontSize"    Value="14"/>
             <Setter Property="FontWeight"  Value="SemiBold"/>
             <Setter Property="Template">
@@ -93,15 +94,48 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background"  Value="#3DD680"/>
+                                <Setter Property="BorderBrush" Value="#3DD680"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background"  Value="#27AE60"/>
+                                <Setter Property="BorderBrush" Value="#27AE60"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.40"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── BtnAccent: plava (za Učitaj) ──────────────────────── -->
+        <Style x:Key="BtnAccent" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+            <Setter Property="Background"  Value="#85B7EB"/>
+            <Setter Property="Foreground"  Value="#141414"/>
+            <Setter Property="BorderBrush" Value="#85B7EB"/>
+            <Setter Property="FontWeight"  Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background"  Value="#9EC4F0"/>
                                 <Setter Property="BorderBrush" Value="#9EC4F0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter Property="Background"  Value="#6FA8DE"/>
                                 <Setter Property="BorderBrush" Value="#6FA8DE"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.40"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -128,6 +162,25 @@
                                 CornerRadius="6">
                             <ScrollViewer x:Name="PART_ContentHost"
                                           Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── AdvantageBar — prilagođen ProgressBar ─────────────── -->
+        <Style x:Key="AdvantageBar" TargetType="ProgressBar">
+            <Setter Property="Foreground"      Value="#D8D8D8"/>
+            <Setter Property="Background"      Value="#141414"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                            <Border x:Name="PART_Indicator"
+                                    HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="3"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>

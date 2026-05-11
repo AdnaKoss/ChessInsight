@@ -3,6 +3,7 @@ using System.Windows.Input;
 using ChessInsight.Core.Enums;
 using ChessInsight.UI.ViewModels;
 using ChessInsight.UI.Views;
+using System;
 
 namespace ChessInsight.UI
 {
@@ -73,6 +74,24 @@ namespace ChessInsight.UI
 
         private void BtnReset_Click(object sender, RoutedEventArgs e) =>
             _vm.Reset();
+
+        private void BtnLoadPgn_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new PgnImportDialog { Owner = this };
+            while (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    _vm.LoadPgn(dialog.PgnText);
+                    TxtFen.Text = "";
+                    return;
+                }
+                catch (ArgumentException ex)
+                {
+                    dialog.ShowError($"Greška: {ex.Message}");
+                }
+            }
+        }
 
         private void BtnSetupPosition_Click(object sender, RoutedEventArgs e)
         {

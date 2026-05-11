@@ -242,6 +242,50 @@ namespace ChessInsight.Core.Models
                 HalfMoveClock, FullMoveNumber);
         }
 
+        // ── FEN export ───────────────────────────────────────────
+
+        public string ToFen()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int rank = 7; rank >= 0; rank--)
+            {
+                int empty = 0;
+                for (int file = 0; file < 8; file++)
+                {
+                    var piece = Board.GetPiece(new Square(rank, file));
+                    if (piece == null) { empty++; }
+                    else
+                    {
+                        if (empty > 0) { sb.Append(empty); empty = 0; }
+                        char c = piece.Type switch
+                        {
+                            PieceType.King   => 'K', PieceType.Queen  => 'Q',
+                            PieceType.Rook   => 'R', PieceType.Bishop => 'B',
+                            PieceType.Knight => 'N', PieceType.Pawn   => 'P',
+                            _ => '?'
+                        };
+                        sb.Append(piece.Color == PieceColor.White ? c : char.ToLower(c));
+                    }
+                }
+                if (empty > 0) sb.Append(empty);
+                if (rank > 0) sb.Append('/');
+            }
+
+            sb.Append(CurrentPlayer == PieceColor.White ? " w " : " b ");
+
+            string castling = "";
+            if (WhiteCanCastleKingside)  castling += "K";
+            if (WhiteCanCastleQueenside) castling += "Q";
+            if (BlackCanCastleKingside)  castling += "k";
+            if (BlackCanCastleQueenside) castling += "q";
+            sb.Append(string.IsNullOrEmpty(castling) ? "-" : castling);
+
+            var ep = Board.EnPassantSquare;
+            sb.Append(ep != null ? $" {(char)('a' + ep.Column)}{ep.Row + 1}" : " -");
+            sb.Append($" {HalfMoveClock} {FullMoveNumber}");
+            return sb.ToString();
+        }
+
         // ── Helper ───────────────────────────────────────────────
 
         public static PieceColor Opponent(PieceColor color) =>
