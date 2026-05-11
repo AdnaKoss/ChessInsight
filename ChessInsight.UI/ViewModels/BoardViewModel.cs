@@ -49,6 +49,10 @@ namespace ChessInsight.UI.ViewModels
         [ObservableProperty] private string _gameStatusText = "Bijeli na potezu";
         [ObservableProperty] private Brush  _sideToMoveFill = Brushes.White;
 
+        // ── Eval bar (bijeli % od dna, crni % od vrha) ──────────
+        [ObservableProperty] private double _evalBarWhitePct = 50.0;
+        [ObservableProperty] private double _evalBarBlackPct = 50.0;
+
         // ── Panel — top 3 poteza ────────────────────────────────
         [ObservableProperty] private string _move1Text = "—";
         [ObservableProperty] private string _move2Text = "—";
@@ -745,6 +749,7 @@ namespace ChessInsight.UI.ViewModels
             {
                 ScoreText      = FormatScore(results[0].Score);
                 ScoreLabelText = GetScoreLabel(results[0].Score);
+                UpdateEvalBar(results[0].Score);
             }
 
             Move1Text = "—"; Score1Text = "";
@@ -781,6 +786,7 @@ namespace ChessInsight.UI.ViewModels
             Move2Text = "—"; Score2Text = "";
             Move3Text = "—"; Score3Text = "";
             DepthText = "—"; NodesText = "—"; TimeText = "—";
+            UpdateEvalBar(0);
 
             RefreshBoard();
         }
@@ -885,6 +891,16 @@ namespace ChessInsight.UI.ViewModels
 
         private static string SquareName(Square sq) =>
             $"{(char)('a' + sq.Column)}{sq.Row + 1}";
+
+        private void UpdateEvalBar(int cp)
+        {
+            double white;
+            if      (cp >  9000) white = 100.0;
+            else if (cp < -9000) white = 0.0;
+            else                 white = 50.0 + 50.0 * Math.Tanh(cp / 600.0);
+            EvalBarWhitePct = white;
+            EvalBarBlackPct = 100.0 - white;
+        }
 
         private static string FormatScore(int cp)
         {

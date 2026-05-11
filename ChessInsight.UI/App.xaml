@@ -5,8 +5,9 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
 
-        <conv:NullToVisibilityConverter x:Key="NullToVis"/>
-        <BooleanToVisibilityConverter  x:Key="BoolToVis"/>
+        <conv:NullToVisibilityConverter      x:Key="NullToVis"/>
+        <BooleanToVisibilityConverter        x:Key="BoolToVis"/>
+        <conv:DoubleToGridLengthConverter    x:Key="ToGridLength"/>
 
         <!-- ── Carbon & Ice paleta ───────────────────────────────── -->
         <SolidColorBrush x:Key="BgApp"         Color="#141414"/>
