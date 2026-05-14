@@ -3,7 +3,9 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using ChessInsight.UI.ViewModels;
 
 namespace ChessInsight.UI.Views
@@ -31,11 +33,15 @@ namespace ChessInsight.UI.Views
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (e.OldValue is BoardViewModel oldVm)
+            {
                 oldVm.PropertyChanged -= OnViewModelPropertyChanged;
+                oldVm.MoveAnimated    -= AnimateMoveSquare;
+            }
             if (e.NewValue is BoardViewModel newVm)
             {
                 newVm.PropertyChanged += OnViewModelPropertyChanged;
-                RefreshArrows(); // draw arrows already set before DataContext was assigned
+                newVm.MoveAnimated    += AnimateMoveSquare;
+                RefreshArrows();
             }
         }
 
@@ -43,6 +49,35 @@ namespace ChessInsight.UI.Views
         {
             if (e.PropertyName == nameof(BoardViewModel.MoveArrows))
                 RefreshArrows();
+        }
+
+        // ── Animacija poteza ─────────────────────────────────────
+
+        private async void AnimateMoveSquare(int fromIdx, int toIdx)
+        {
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+            var container = BoardGrid.ItemContainerGenerator.ContainerFromIndex(toIdx) as ContentPresenter;
+            if (container == null) return;
+
+            double sqW = BoardGrid.ActualWidth  / 8;
+            double sqH = BoardGrid.ActualHeight / 8;
+
+            double offsetX = (fromIdx % 8 - toIdx % 8) * sqW;
+            double offsetY = (fromIdx / 8 - toIdx / 8) * sqH;
+
+            if (Math.Abs(offsetX) < 1 && Math.Abs(offsetY) < 1) return;
+
+            var tt = new TranslateTransform(offsetX, offsetY);
+            container.RenderTransform = tt;
+
+            var ease = new QuarticEase { EasingMode = EasingMode.EaseOut };
+            var dur  = new Duration(TimeSpan.FromMilliseconds(170));
+
+            tt.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(offsetX, 0, dur) { EasingFunction = ease });
+            tt.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(offsetY, 0, dur) { EasingFunction = ease });
         }
 
         // ── Arrow drawing ────────────────────────────────────────
@@ -64,9 +99,9 @@ namespace ChessInsight.UI.Views
 
                 var (color, strokeW) = arrow.Priority switch
                 {
-                    0 => (Color.FromArgb(185, 46, 204, 113),  17.0),  // zelena — najbolji potez
-                    1 => (Color.FromArgb(170, 133, 183, 235),  13.0),  // plava — drugi
-                    _ => (Color.FromArgb(150, 136, 135, 128),   9.0)   // siva — treći
+                    0 => (Color.FromArgb(185, 0x3E, 0xA8, 0x12),  17.0),  // #3EA812 — najbolji potez
+                    1 => (Color.FromArgb(170, 133, 183, 235),       13.0),  // plava — drugi
+                    _ => (Color.FromArgb(150, 136, 135, 128),        9.0)   // siva — treći
                 };
 
                 DrawArrow(ArrowCanvas, from, to, new SolidColorBrush(color), strokeW);

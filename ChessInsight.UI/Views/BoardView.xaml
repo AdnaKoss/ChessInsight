@@ -40,6 +40,22 @@
                                         Background="{Binding Background}"
                                         BorderThickness="0">
                                     <Grid>
+                                        <!-- Highlight zadnjeg poteza -->
+                                        <Rectangle Fill="#33D4A840" IsHitTestVisible="False"
+                                                   Visibility="{Binding IsLastMove, Converter={StaticResource BoolToVis}}"/>
+
+                                        <!-- Koordinatne oznake (chess.com stil) -->
+                                        <TextBlock Text="{Binding RankLabel}"
+                                                   Foreground="{Binding CoordColor}"
+                                                   FontSize="9" FontWeight="Bold"
+                                                   HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                   Margin="2,1,0,0" IsHitTestVisible="False"/>
+                                        <TextBlock Text="{Binding FileLabel}"
+                                                   Foreground="{Binding CoordColor}"
+                                                   FontSize="9" FontWeight="Bold"
+                                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                   Margin="0,0,2,1" IsHitTestVisible="False"/>
+
                                         <!-- SVG figura (prikazuje se kad postoji slika) -->
                                         <svgc:SvgViewbox Source="{Binding PieceSvgUri}"
                                                          Margin="{Binding PieceMargin}"

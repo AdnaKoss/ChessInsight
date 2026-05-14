@@ -25,8 +25,8 @@ namespace ChessInsight.UI.Views
         private Point      _paletteMouseDownPos;
 
         // Boje polja
-        private static readonly Brush BrLight = new SolidColorBrush(Color.FromRgb(0xF0, 0xD9, 0xB5));
-        private static readonly Brush BrDark  = new SolidColorBrush(Color.FromRgb(0xB5, 0x88, 0x63));
+        private static readonly Brush BrLight = new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8));
+        private static readonly Brush BrDark  = new SolidColorBrush(Color.FromRgb(0x6E, 0x7E, 0x8E));
 
         public string? ResultFen { get; private set; }
 

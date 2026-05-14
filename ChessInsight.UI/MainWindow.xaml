@@ -6,8 +6,14 @@
         Width="1050" Height="750"
         MinWidth="850" MinHeight="650"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgApp}"
         KeyDown="Window_KeyDown">
+    <Window.Background>
+        <RadialGradientBrush GradientOrigin="0.5,0.4" Center="0.5,0.4" RadiusX="0.9" RadiusY="0.8">
+            <GradientStop Color="#142848" Offset="0"/>
+            <GradientStop Color="#0C1C38" Offset="0.5"/>
+            <GradientStop Color="#05101E" Offset="1"/>
+        </RadialGradientBrush>
+    </Window.Background>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -49,7 +55,7 @@
                 <!-- Separator -->
                 <ColumnDefinition Width="1"/>
                 <!-- Analitički panel — fiksna širina -->
-                <ColumnDefinition Width="290"/>
+                <ColumnDefinition Width="352"/>
             </Grid.ColumnDefinitions>
 
             <!-- ── Eval bar ──────────────────────────────────────── -->
@@ -57,10 +63,10 @@
                     Margin="6,16,6,16"
                     CornerRadius="4"
                     ClipToBounds="True"
-                    Background="#1C1C1C">
+                    Background="#08111F">
                 <Grid>
                     <!-- Bijela sekcija raste od dna — ScaleTransform je pouzdan u WPF -->
-                    <Rectangle Fill="#D9D9D9"
+                    <Rectangle Fill="#D0D8E8"
                                VerticalAlignment="Stretch"
                                RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
@@ -79,60 +85,36 @@
                      Margin="16"
                      HorizontalAlignment="Center"
                      VerticalAlignment="Center">
-                <Grid Width="520" Height="520">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="500"/>
-                        <RowDefinition Height="20"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="20"/>
-                        <ColumnDefinition Width="500"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Oznake redova -->
-                    <ItemsControl Grid.Row="0" Grid.Column="0"
-                                  ItemsSource="{Binding RowLabels}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Columns="1" Rows="8"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- Šahovska tabla -->
-                    <views:BoardView Grid.Row="0" Grid.Column="1"/>
-
-                    <!-- Oznake kolona -->
-                    <ItemsControl Grid.Row="1" Grid.Column="1"
-                                  ItemsSource="{Binding ColLabels}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Rows="1" Columns="8"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Grid>
+                <views:BoardView Width="500" Height="500"/>
             </Viewbox>
 
             <!-- ── Separator ──────────────────────────────────── -->
-            <Rectangle Grid.Column="2" Fill="{StaticResource BorderColor}"/>
+            <Rectangle Grid.Column="2">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00FFFFFF" Offset="0"/>
+                        <GradientStop Color="#18FFFFFF" Offset="0.2"/>
+                        <GradientStop Color="#18FFFFFF" Offset="0.8"/>
+                        <GradientStop Color="#00FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
 
             <!-- ── Desno: Analitički panel ────────────────────── -->
-            <Border Grid.Column="3" Background="{StaticResource BgPanel}">
+            <Grid Grid.Column="3">
+                <!-- Glass layers -->
+                <Border Background="#0EFFFFFF"
+                        BorderBrush="#22FFFFFF"
+                        BorderThickness="1,0,0,0"/>
+                <Rectangle VerticalAlignment="Top" Height="180" IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#0CFFFFFF" Offset="0"/>
+                            <GradientStop Color="#00FFFFFF" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <!-- Content -->
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>  <!-- Evaluacija -->
@@ -144,24 +126,22 @@
                     </Grid.RowDefinitions>
 
                     <!-- Evaluacija pozicije -->
-                    <Border Grid.Row="0" Background="{StaticResource BgCard}"
+                    <Border Grid.Row="0" Background="#12FFFFFF"
+                            BorderBrush="#1EFFFFFF" BorderThickness="1"
                             Margin="12,14,12,0" CornerRadius="6" Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="EVALUACIJA POZICIJE"
                                        Foreground="{StaticResource TextSecondary}"
                                        FontSize="10" FontWeight="Bold"
-                                       Margin="0,0,0,8"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <TextBlock Text="{Binding ScoreText}"
-                                           Foreground="{StaticResource TextAccent}"
-                                           FontSize="28" FontWeight="Bold"
-                                           FontFamily="Consolas"/>
-                                <TextBlock Text="{Binding ScoreLabelText, StringFormat='  {0}'}"
-                                           Foreground="{StaticResource TextSecondary}"
-                                           FontSize="13"
-                                           VerticalAlignment="Bottom"
-                                           Margin="0,0,0,4"/>
-                            </StackPanel>
+                                       Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding ScoreText}"
+                                       Foreground="{StaticResource TextAccent}"
+                                       FontSize="28" FontWeight="Bold"
+                                       FontFamily="Consolas"/>
+                            <TextBlock Text="{Binding ScoreLabelText}"
+                                       Foreground="{Binding ScoreLabelColor}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Margin="0,1,0,4"/>
                             <TextBlock Text="{Binding GameStatusText}"
                                        Foreground="{StaticResource TextSecondary}"
                                        FontSize="12"/>
@@ -193,7 +173,8 @@
                     </Border>
 
                     <!-- Top 3 poteza -->
-                    <Border Grid.Row="2" Background="{StaticResource BgCard}"
+                    <Border Grid.Row="2" Background="#12FFFFFF"
+                            BorderBrush="#1EFFFFFF" BorderThickness="1"
                             Margin="12,10,12,0" CornerRadius="6" Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="TOP 3 POTEZA"
@@ -282,70 +263,74 @@
                     </Border>
 
                     <!-- Statistike -->
-                    <Border Grid.Row="3" Background="{StaticResource BgCard}"
-                            Margin="12,8,12,0" CornerRadius="6" Padding="12,8">
+                    <Border Grid.Row="3" Background="#12FFFFFF"
+                            BorderBrush="#1EFFFFFF" BorderThickness="1"
+                            Margin="12,8,12,0" CornerRadius="6" Padding="12,10">
                         <StackPanel>
                             <TextBlock Text="STATISTIKE"
                                        Foreground="{StaticResource TextSecondary}"
                                        FontSize="10" FontWeight="Bold"
-                                       Margin="0,0,0,6"/>
-
-                            <Grid Margin="0,0,0,3">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Dubina pretrage"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding DepthText}"
-                                           Foreground="{StaticResource TextPrimary}"
-                                           FontSize="11" FontFamily="Consolas"/>
-                            </Grid>
-
-                            <Grid Margin="0,0,0,3">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Pregledani čvorovi"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding NodesText}"
-                                           Foreground="{StaticResource TextPrimary}"
-                                           FontSize="11" FontFamily="Consolas"/>
-                            </Grid>
-
-                            <Grid Margin="0,0,0,3">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Vrijeme analize"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding TimeText}"
-                                           Foreground="{StaticResource TextPrimary}"
-                                           FontSize="11" FontFamily="Consolas"/>
-                            </Grid>
-
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Algoritam"
-                                           Foreground="{StaticResource TextSecondary}" FontSize="11"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="Alpha-Beta"
-                                           Foreground="{StaticResource TextPrimary}"
-                                           FontSize="11" FontFamily="Consolas"/>
-                            </Grid>
+                                       Margin="0,0,0,8"/>
+                            <UniformGrid Rows="2" Columns="2">
+                                <!-- Dubina -->
+                                <Border Background="#0CFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1"
+                                        CornerRadius="4" Padding="8,6" Margin="0,0,4,4">
+                                    <StackPanel>
+                                        <TextBlock Text="DUBINA" FontSize="9" FontWeight="Bold"
+                                                   Foreground="{StaticResource TextSecondary}"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding DepthText}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   FontFamily="Consolas"
+                                                   Foreground="{StaticResource TextPrimary}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Čvorovi -->
+                                <Border Background="#0CFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1"
+                                        CornerRadius="4" Padding="8,6" Margin="0,0,0,4">
+                                    <StackPanel>
+                                        <TextBlock Text="ČVOROVI" FontSize="9" FontWeight="Bold"
+                                                   Foreground="{StaticResource TextSecondary}"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding NodesText}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   FontFamily="Consolas"
+                                                   Foreground="{StaticResource TextPrimary}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Vrijeme -->
+                                <Border Background="#0CFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1"
+                                        CornerRadius="4" Padding="8,6" Margin="0,0,4,0">
+                                    <StackPanel>
+                                        <TextBlock Text="VRIJEME" FontSize="9" FontWeight="Bold"
+                                                   Foreground="{StaticResource TextSecondary}"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding TimeText}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   FontFamily="Consolas"
+                                                   Foreground="{StaticResource TextPrimary}"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Algoritam -->
+                                <Border Background="#0CFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1"
+                                        CornerRadius="4" Padding="8,6" Margin="0,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="ALGORITAM" FontSize="9" FontWeight="Bold"
+                                                   Foreground="{StaticResource TextSecondary}"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock Text="Alpha-Beta"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   FontFamily="Consolas"
+                                                   Foreground="{StaticResource TextPrimary}"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
                         </StackPanel>
                     </Border>
 
                     <!-- Istorija poteza -->
-                    <Border Grid.Row="4" Background="{StaticResource BgCard}"
+                    <Border Grid.Row="4" Background="#12FFFFFF"
+                            BorderBrush="#1EFFFFFF" BorderThickness="1"
                             Margin="12,8,12,0" CornerRadius="6" Padding="12,10"
                             MinHeight="120">
                         <Grid>
@@ -368,23 +353,76 @@
                                         <DataTemplate>
                                             <Grid Margin="0,1">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="28"/>
+                                                    <ColumnDefinition Width="26"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0"
                                                            Text="{Binding Number, StringFormat='{}{0}.'}"
                                                            Foreground="{StaticResource TextSecondary}"
-                                                           FontSize="12" FontFamily="Consolas"/>
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding WhiteMove}"
-                                                           Foreground="{StaticResource TextPrimary}"
                                                            FontSize="12" FontFamily="Consolas"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Grid.Column="2"
-                                                           Text="{Binding BlackMove}"
-                                                           Foreground="{StaticResource TextPrimary}"
-                                                           FontSize="12" FontFamily="Consolas"/>
+                                                           VerticalAlignment="Center"
+                                                           Padding="0,4"/>
+
+                                                <!-- Bijeli potez -->
+                                                <Border Grid.Column="1" CornerRadius="3" Margin="1,1,1,1">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsWhiteActive}" Value="True">
+                                                                    <Setter Property="Background" Value="#28D4A840"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding WhiteMove}"
+                                                               FontSize="12" FontFamily="Consolas"
+                                                               Padding="4,4" VerticalAlignment="Center">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                                                <Setter Property="FontWeight" Value="Normal"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsWhiteActive}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#D4A840"/>
+                                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+
+                                                <!-- Crni potez -->
+                                                <Border Grid.Column="2" CornerRadius="3" Margin="1,1,1,1">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsBlackActive}" Value="True">
+                                                                    <Setter Property="Background" Value="#28D4A840"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding BlackMove}"
+                                                               FontSize="12" FontFamily="Consolas"
+                                                               Padding="4,4" VerticalAlignment="Center">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                                                <Setter Property="FontWeight" Value="Normal"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsBlackActive}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#D4A840"/>
+                                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -412,7 +450,7 @@
                         </Button.Style>
                     </Button>
                 </Grid>
-            </Border>
+            </Grid>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════════════
@@ -453,46 +491,50 @@
         <Border Grid.Row="3" Background="{StaticResource BgToolbar}"
                 BorderBrush="{StaticResource BorderColor}"
                 BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Margin="12,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
                 <Button x:Name="BtnBack"
-                        Content="◀  Nazad"
+                        Content="◀"
                         Style="{StaticResource BtnBase}"
                         Click="BtnBack_Click"
                         IsEnabled="{Binding CanGoBack}"
                         ToolTip="Vrati jedan potez unazad"
-                        Margin="0,0,8,0"/>
+                        Width="32" Padding="0"
+                        Margin="0,0,3,0"/>
                 <Button x:Name="BtnForward"
-                        Content="Naprijed  ▶"
+                        Content="▶"
                         Style="{StaticResource BtnBase}"
                         Click="BtnForward_Click"
                         IsEnabled="{Binding CanGoForward}"
                         ToolTip="Idi jedan potez naprijed"
-                        Margin="0,0,16,0"/>
+                        Width="32" Padding="0"
+                        Margin="0,0,10,0"/>
                 <Button x:Name="BtnFlip"
-                        Content="⟳  Okreni Ploču"
+                        Content="⟳  Okreni"
                         Style="{StaticResource BtnBase}"
                         Click="BtnFlip_Click"
                         ToolTip="Obrni orijentaciju table"
-                        Margin="0,0,8,0"/>
+                        Margin="0,0,6,0"/>
                 <Button x:Name="BtnReset"
-                        Content="↺  Resetuj"
+                        Content="↺  Reset"
                         Style="{StaticResource BtnBase}"
                         Click="BtnReset_Click"
                         ToolTip="Vrati na početnu poziciju"
-                        Margin="0,0,8,0"/>
+                        Margin="0,0,6,0"/>
                 <Button x:Name="BtnSetupPosition"
-                        Content="✎  Postavi Figuru"
+                        Content="✎"
                         Style="{StaticResource BtnBase}"
                         Click="BtnSetupPosition_Click"
-                        ToolTip="Ručno postavi figure na ploču"
-                        Margin="0,0,8,0"/>
+                        ToolTip="Postavi figuru"
+                        Width="34" Padding="0"
+                        FontSize="15"
+                        Margin="0,0,6,0"/>
                 <Button x:Name="BtnLoadPgn"
-                        Content="📄  PGN"
+                        Content="📄"
                         Style="{StaticResource BtnBase}"
                         Click="BtnLoadPgn_Click"
-                        ToolTip="Učitaj šahovsku partiju iz PGN notacije"/>
+                        ToolTip="Učitaj PGN partiju"
+                        Width="34" Padding="0"
+                        FontSize="15"/>
             </StackPanel>
         </Border>
 

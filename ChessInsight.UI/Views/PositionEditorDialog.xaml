@@ -5,7 +5,7 @@
         Width="750" Height="570"
         MinWidth="700" MinHeight="530"
         WindowStartupLocation="CenterOwner"
-        Background="#2B2D30"
+        Background="#08111F"
         ResizeMode="CanMinimize">
 
     <Grid Margin="14">
@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- Lijevo: šahovska ploča (kvadratna) -->
-        <Border Grid.Column="0" BorderBrush="#555860" BorderThickness="2">
+        <Border Grid.Column="0" BorderBrush="#14FFFFFF" BorderThickness="2">
             <Viewbox Stretch="Uniform">
                 <UniformGrid x:Name="EditorBoardGrid"
                              Rows="8" Columns="8"
@@ -28,10 +28,11 @@
         <StackPanel Grid.Column="2" VerticalAlignment="Top">
 
             <!-- Odabrana figura -->
-            <Border Background="#43464D" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+            <Border Background="#102035" CornerRadius="6" Padding="12,10" Margin="0,0,0,10"
+                    BorderBrush="#14FFFFFF" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="ODABRANA FIGURA"
-                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Foreground="#80D0DCF0" FontSize="10" FontWeight="Bold"
                                Margin="0,0,0,6"/>
                     <TextBlock x:Name="TxtSelected"
                                Foreground="#FFD700" FontSize="13"
@@ -40,20 +41,22 @@
             </Border>
 
             <!-- Bijele figure -->
-            <Border Background="#43464D" CornerRadius="6" Padding="10,10" Margin="0,0,0,8">
+            <Border Background="#102035" CornerRadius="6" Padding="10,10" Margin="0,0,0,8"
+                    BorderBrush="#14FFFFFF" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="BIJELE FIGURE"
-                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Foreground="#80D0DCF0" FontSize="10" FontWeight="Bold"
                                Margin="0,0,0,8"/>
                     <UniformGrid x:Name="WhitePalette" Rows="1" Columns="6" Height="36"/>
                 </StackPanel>
             </Border>
 
             <!-- Crne figure -->
-            <Border Background="#43464D" CornerRadius="6" Padding="10,10" Margin="0,0,0,8">
+            <Border Background="#102035" CornerRadius="6" Padding="10,10" Margin="0,0,0,8"
+                    BorderBrush="#14FFFFFF" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="CRNE FIGURE"
-                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Foreground="#80D0DCF0" FontSize="10" FontWeight="Bold"
                                Margin="0,0,0,8"/>
                     <UniformGrid x:Name="BlackPalette" Rows="1" Columns="6" Height="36"/>
                 </StackPanel>
@@ -67,13 +70,14 @@
                     Click="BtnEraser_Click"/>
 
             <!-- Separator -->
-            <Rectangle Height="1" Fill="#555860" Margin="0,0,0,10"/>
+            <Rectangle Height="1" Fill="#14FFFFFF" Margin="0,0,0,10"/>
 
             <!-- Ko je na potezu -->
-            <Border Background="#43464D" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+            <Border Background="#102035" CornerRadius="6" Padding="12,10" Margin="0,0,0,10"
+                    BorderBrush="#14FFFFFF" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="KO JE NA POTEZU"
-                               Foreground="#9B9EA3" FontSize="10" FontWeight="Bold"
+                               Foreground="#80D0DCF0" FontSize="10" FontWeight="Bold"
                                Margin="0,0,0,8"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -87,23 +91,23 @@
                             <RadioButton.Template>
                                 <ControlTemplate TargetType="RadioButton">
                                     <Border x:Name="Bd"
-                                            Background="#2B2D30"
-                                            BorderBrush="#555860" BorderThickness="2"
+                                            Background="#08111F"
+                                            BorderBrush="#14FFFFFF" BorderThickness="2"
                                             CornerRadius="4" Padding="6,5">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                             <Ellipse Width="11" Height="11"
-                                                     Fill="#F0D9B5"
-                                                     Stroke="#555860" StrokeThickness="1"
+                                                     Fill="#D4B896"
+                                                     Stroke="#14FFFFFF" StrokeThickness="1"
                                                      VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBlock Text="Bijeli"
-                                                       Foreground="#E8E8E8" FontSize="12"
+                                                       Foreground="#D0DCF0" FontSize="12"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FFD700"/>
-                                            <Setter TargetName="Bd" Property="Background" Value="#3A3C40"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2ECC71"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1A3050"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -115,23 +119,23 @@
                             <RadioButton.Template>
                                 <ControlTemplate TargetType="RadioButton">
                                     <Border x:Name="Bd"
-                                            Background="#2B2D30"
-                                            BorderBrush="#555860" BorderThickness="2"
+                                            Background="#08111F"
+                                            BorderBrush="#14FFFFFF" BorderThickness="2"
                                             CornerRadius="4" Padding="6,5">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                             <Ellipse Width="11" Height="11"
-                                                     Fill="#1A1A1A"
-                                                     Stroke="#9B9EA3" StrokeThickness="1"
+                                                     Fill="#080C18"
+                                                     Stroke="#80D0DCF0" StrokeThickness="1"
                                                      VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBlock Text="Crni"
-                                                       Foreground="#E8E8E8" FontSize="12"
+                                                       Foreground="#D0DCF0" FontSize="12"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FFD700"/>
-                                            <Setter TargetName="Bd" Property="Background" Value="#3A3C40"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2ECC71"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1A3050"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -148,7 +152,7 @@
                     Click="BtnClear_Click"/>
 
             <!-- Separator -->
-            <Rectangle Height="1" Fill="#555860" Margin="0,8,0,8"/>
+            <Rectangle Height="1" Fill="#14FFFFFF" Margin="0,8,0,8"/>
 
             <!-- Postavi poziciju (OK) -->
             <Button Height="40" Margin="0,0,0,6"

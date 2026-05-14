@@ -59,6 +59,34 @@ namespace ChessInsight.UI.ViewModels
             set { _isLegalCapture = value; OnPropertyChanged(nameof(IsLegalCapture)); }
         }
 
+        private bool _isLastMove;
+        public bool IsLastMove
+        {
+            get => _isLastMove;
+            set { _isLastMove = value; OnPropertyChanged(nameof(IsLastMove)); }
+        }
+
+        private string _rankLabel = "";
+        public string RankLabel
+        {
+            get => _rankLabel;
+            set { _rankLabel = value; OnPropertyChanged(nameof(RankLabel)); }
+        }
+
+        private string _fileLabel = "";
+        public string FileLabel
+        {
+            get => _fileLabel;
+            set { _fileLabel = value; OnPropertyChanged(nameof(FileLabel)); }
+        }
+
+        private Brush _coordColor = Brushes.Transparent;
+        public Brush CoordColor
+        {
+            get => _coordColor;
+            set { _coordColor = value; OnPropertyChanged(nameof(CoordColor)); }
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

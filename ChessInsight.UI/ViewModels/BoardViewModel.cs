@@ -54,6 +54,10 @@ namespace ChessInsight.UI.ViewModels
         // ── Eval bar (bijeli % od dna, crni % od vrha) ──────────
         [ObservableProperty] private double _evalBarWhiteRatio = 0.5;
 
+        // ── Score label boja i kompaktne statistike ─────────────
+        [ObservableProperty] private Brush  _scoreLabelColor = Brushes.Transparent;
+        [ObservableProperty] private string _statsLineText   = "";
+
         // ── Panel — top 3 poteza ────────────────────────────────
         [ObservableProperty] private string _move1Text = "";
         [ObservableProperty] private string _move2Text = "";
@@ -84,6 +88,7 @@ namespace ChessInsight.UI.ViewModels
 
         // ── Events ─────────────────────────────────────────────
         public event Func<PieceColor, PieceType>? PromotionRequired;
+        public event Action<int, int>? MoveAnimated;
 
         // ── Pristup trenutnom stanju (za editor pozicije) ───────
         public GameState CurrentGameState => _gameState;
@@ -93,12 +98,18 @@ namespace ChessInsight.UI.ViewModels
         private bool IsGameOver =>
             _gameState.Status is GameStatus.Checkmate or GameStatus.Stalemate or GameStatus.Draw;
 
+        // ── Zadnji odigrani potez (board coords, -1 = nema) ────
+        private int _lastMoveFromBoardRow = -1, _lastMoveFromBoardCol = -1;
+        private int _lastMoveToBoardRow   = -1, _lastMoveToBoardCol   = -1;
+
         // ── Statički brushevi ───────────────────────────────────
-        private static readonly Brush BrLight    = new SolidColorBrush(Color.FromRgb(0xBA, 0xBA, 0xBA));
-        private static readonly Brush BrDark     = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A));
-        private static readonly Brush BrLegal    = new SolidColorBrush(Color.FromArgb(210, 0xC8, 0xA8, 0x4B));
-        private static readonly Brush BrBest     = new SolidColorBrush(Color.FromArgb(210, 0x1D, 0x9E, 0x75));
-        private static readonly Brush BrSelected = new SolidColorBrush(Color.FromArgb(255, 0x85, 0xB7, 0xEB));
+        private static readonly Brush BrLight        = new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8));   // #E8E8E8 — svjetlo polje
+        private static readonly Brush BrDark         = new SolidColorBrush(Color.FromRgb(0x6E, 0x7E, 0x8E));   // #6E7E8E — tamno polje
+        private static readonly Brush BrCoordOnLight = new SolidColorBrush(Color.FromRgb(0x6E, 0x7E, 0x8E));   // tamna na svijetlom
+        private static readonly Brush BrCoordOnDark  = new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8));   // svijetla na tamnom
+        private static readonly Brush BrLegal    = new SolidColorBrush(Color.FromArgb(140, 0x4A, 0xAB, 0xFF)); // plavi krug
+        private static readonly Brush BrBest     = new SolidColorBrush(Color.FromArgb(153, 0x3E, 0xA8, 0x12)); // zelena
+        private static readonly Brush BrSelected = new SolidColorBrush(Color.FromArgb(140, 0x4A, 0xAB, 0xFF)); // plavi highlight
         private static readonly Brush BrWhite    = new SolidColorBrush(Color.FromRgb(0xFA, 0xFA, 0xFA));
         private static readonly Brush BrBlack    = new SolidColorBrush(Color.FromRgb(0x16, 0x16, 0x16));
 
@@ -115,6 +126,7 @@ namespace ChessInsight.UI.ViewModels
             _stateHistory.Add(_gameState);
             UpdateLabels();
             RefreshBoard();
+            UpdateLastMoveHighlight();
             DisplayBookMovesInstant();
         }
 
@@ -127,6 +139,8 @@ namespace ChessInsight.UI.ViewModels
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
             ResetHistory();
+            _lastMoveFromBoardRow = -1; _lastMoveFromBoardCol = -1;
+            _lastMoveToBoardRow   = -1; _lastMoveToBoardCol   = -1;
 
             ScoreText = ""; ScoreLabelText = "";
             Move1Text = ""; Score1Text = "";
@@ -136,6 +150,7 @@ namespace ChessInsight.UI.ViewModels
             EvalBarWhiteRatio = 0.5;
 
             RefreshBoard();
+            UpdateLastMoveHighlight();
             DisplayBookMovesInstant();
         }
 
@@ -178,6 +193,8 @@ namespace ChessInsight.UI.ViewModels
             _gameState = _stateHistory[0];
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
+            _lastMoveFromBoardRow = -1; _lastMoveFromBoardCol = -1;
+            _lastMoveToBoardRow   = -1; _lastMoveToBoardCol   = -1;
 
             ScoreText = ""; ScoreLabelText = "";
             Move1Text = ""; Score1Text = "";
@@ -188,6 +205,7 @@ namespace ChessInsight.UI.ViewModels
 
             RebuildMoveHistory();
             RefreshBoard();
+            UpdateLastMoveHighlight();
             UpdateCanNavigate();
         }
 
@@ -332,9 +350,12 @@ namespace ChessInsight.UI.ViewModels
                 var piece = _gameState.Board.GetPiece(new Square(r, c));
                 bool isLight = (r + c) % 2 == 1;
 
+                int visRow = i / 8, visCol = i % 8;
+
                 Squares[i].Background     = isLight ? BrLight : BrDark;
                 Squares[i].IsLegalMove    = false;
                 Squares[i].IsLegalCapture = false;
+                Squares[i].IsLastMove     = false;
                 Squares[i].PieceSymbol    = GetSymbol(piece);
                 Squares[i].PieceColor   = piece?.Color == PieceColor.White ? BrWhite : BrBlack;
                 Squares[i].PieceSvgUri  = GetSvgUri(piece);
@@ -347,6 +368,9 @@ namespace ChessInsight.UI.ViewModels
                 };
                 Squares[i].Row          = r;
                 Squares[i].Column       = c;
+                Squares[i].RankLabel    = visCol == 0 ? (r + 1).ToString() : "";
+                Squares[i].FileLabel    = visRow == 7 ? ((char)('a' + c)).ToString() : "";
+                Squares[i].CoordColor   = isLight ? BrCoordOnLight : BrCoordOnDark;
             }
 
             GameStatusText = _gameState.Status switch
@@ -365,8 +389,8 @@ namespace ChessInsight.UI.ViewModels
             };
 
             SideToMoveFill = _gameState.CurrentPlayer == PieceColor.White
-                ? new SolidColorBrush(Color.FromRgb(0xF0, 0xD9, 0xB5))
-                : new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
+                ? new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8))
+                : new SolidColorBrush(Color.FromRgb(0x18, 0x1E, 0x2A));
 
             _analysisArrows = new();
             MoveArrows = new();
@@ -466,6 +490,7 @@ namespace ChessInsight.UI.ViewModels
             _selectedPieceMoves.Clear();
             var saved = _analysisArrows;
             RefreshBoard();
+            UpdateLastMoveHighlight();
             _analysisArrows = saved;
             MoveArrows = saved;
         }
@@ -506,6 +531,11 @@ namespace ChessInsight.UI.ViewModels
 
         private void CommitMove(Move move)
         {
+            _lastMoveFromBoardRow = move.From.Row; _lastMoveFromBoardCol = move.From.Column;
+            _lastMoveToBoardRow   = move.To.Row;   _lastMoveToBoardCol   = move.To.Column;
+            int fromVi = ToVisualIndex(move.From.Row, move.From.Column);
+            int toVi   = ToVisualIndex(move.To.Row,   move.To.Column);
+
             var stateBefore = _gameState;
             _gameState = _gameState.ApplyMove(move);
 
@@ -529,8 +559,10 @@ namespace ChessInsight.UI.ViewModels
             _selectedPieceMoves.Clear();
             RebuildMoveHistory();
             RefreshBoard();
+            UpdateLastMoveHighlight();
             DisplayBookMovesInstant();
             UpdateCanNavigate();
+            MoveAnimated?.Invoke(fromVi, toVi);
 
             if (IsAutoAnalyzing && !IsGameOver)
             {
@@ -618,8 +650,10 @@ namespace ChessInsight.UI.ViewModels
             _gameState = _stateHistory[_viewIndex];
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
+            SetLastMoveFromLog();
             RebuildMoveHistory();
             RefreshBoard();
+            UpdateLastMoveHighlight();
             DisplayBookMovesInstant();
             UpdateCanNavigate();
             if (IsAutoAnalyzing && !IsGameOver) _ = AnalyzeAsync();
@@ -632,8 +666,10 @@ namespace ChessInsight.UI.ViewModels
             _gameState = _stateHistory[_viewIndex];
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
+            SetLastMoveFromLog();
             RebuildMoveHistory();
             RefreshBoard();
+            UpdateLastMoveHighlight();
             DisplayBookMovesInstant();
             UpdateCanNavigate();
             if (IsAutoAnalyzing && !IsGameOver) _ = AnalyzeAsync();
@@ -646,6 +682,17 @@ namespace ChessInsight.UI.ViewModels
         }
 
         partial void OnIsAnalyzingChanged(bool value) => UpdateCanNavigate();
+
+        partial void OnDepthTextChanged(string value)  => RefreshStatsLine();
+        partial void OnNodesTextChanged(string value)  => RefreshStatsLine();
+        partial void OnTimeTextChanged(string value)   => RefreshStatsLine();
+
+        private void RefreshStatsLine()
+        {
+            StatsLineText = DepthText.Length > 0
+                ? $"D: {DepthText}  ·  N: {NodesText}  ·  T: {TimeText}"
+                : "";
+        }
 
         // ── Rebuild prikaza historije (najnoviji prvi) ──────────
 
@@ -668,6 +715,16 @@ namespace ChessInsight.UI.ViewModels
 
             foreach (var e in entries.Values.OrderByDescending(x => x.Number))
                 MoveHistory.Add(e);
+
+            if (_viewIndex > 0)
+            {
+                var (_, _, lastPlayer, lastMoveNum) = _moveLog[_viewIndex - 1];
+                if (entries.TryGetValue(lastMoveNum, out var active))
+                {
+                    active.IsWhiteActive = lastPlayer == PieceColor.White;
+                    active.IsBlackActive = lastPlayer == PieceColor.Black;
+                }
+            }
         }
 
         // ── Reset historije ─────────────────────────────────────
@@ -780,8 +837,9 @@ namespace ChessInsight.UI.ViewModels
                 if (!token.IsCancellationRequested && ReferenceEquals(snap, _gameState))
                 {
                     int staticScore = new Evaluator().Evaluate(snap);
-                    ScoreText      = FormatScore(staticScore);
-                    ScoreLabelText = GetScoreLabel(staticScore);
+                    ScoreText       = FormatScore(staticScore);
+                    ScoreLabelText  = GetScoreLabel(staticScore);
+                    ScoreLabelColor = GetScoreLabelBrush(staticScore);
                     UpdateEvalBar(staticScore);
                     DepthText = "knjiga";
                     NodesText = "—";
@@ -859,8 +917,9 @@ namespace ChessInsight.UI.ViewModels
 
             if (results.Count > 0)
             {
-                ScoreText      = FormatScore(results[0].Score);
-                ScoreLabelText = GetScoreLabel(results[0].Score);
+                ScoreText       = FormatScore(results[0].Score);
+                ScoreLabelText  = GetScoreLabel(results[0].Score);
+                ScoreLabelColor = GetScoreLabelBrush(results[0].Score);
                 UpdateEvalBar(results[0].Score);
             }
 
@@ -905,6 +964,8 @@ namespace ChessInsight.UI.ViewModels
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
             ResetHistory();
+            _lastMoveFromBoardRow = -1; _lastMoveFromBoardCol = -1;
+            _lastMoveToBoardRow   = -1; _lastMoveToBoardCol   = -1;
 
             ScoreText = "0.00"; ScoreLabelText = "Ravnopravno";
             Move1Text = "—"; Score1Text = "";
@@ -914,6 +975,7 @@ namespace ChessInsight.UI.ViewModels
             UpdateEvalBar(0);
 
             RefreshBoard();
+            UpdateLastMoveHighlight();
             DisplayBookMovesInstant();
         }
 
@@ -926,6 +988,7 @@ namespace ChessInsight.UI.ViewModels
             _selectedIndex = null;
             UpdateLabels();
             RefreshBoard();
+            UpdateLastMoveHighlight();
         }
 
         // ── Dinamične oznake redova/kolona ──────────────────────
@@ -962,6 +1025,33 @@ namespace ChessInsight.UI.ViewModels
             int vRow = visualIndex / 8;
             int vCol = visualIndex % 8;
             return IsFlipped ? (vRow, 7 - vCol) : (7 - vRow, vCol);
+        }
+
+        // ── Highlight zadnjeg poteza ────────────────────────────
+
+        private void SetLastMoveFromLog()
+        {
+            if (_viewIndex <= 0)
+            {
+                _lastMoveFromBoardRow = -1; _lastMoveFromBoardCol = -1;
+                _lastMoveToBoardRow   = -1; _lastMoveToBoardCol   = -1;
+            }
+            else
+            {
+                var m = _moveLog[_viewIndex - 1].move;
+                _lastMoveFromBoardRow = m.From.Row; _lastMoveFromBoardCol = m.From.Column;
+                _lastMoveToBoardRow   = m.To.Row;   _lastMoveToBoardCol   = m.To.Column;
+            }
+        }
+
+        private void UpdateLastMoveHighlight()
+        {
+            for (int i = 0; i < 64; i++) Squares[i].IsLastMove = false;
+            if (_lastMoveFromBoardRow < 0) return;
+            int fromVi = ToVisualIndex(_lastMoveFromBoardRow, _lastMoveFromBoardCol);
+            int toVi   = ToVisualIndex(_lastMoveToBoardRow,   _lastMoveToBoardCol);
+            if (fromVi is >= 0 and < 64) Squares[fromVi].IsLastMove = true;
+            if (toVi   is >= 0 and < 64) Squares[toVi].IsLastMove   = true;
         }
 
         private int ToVisualIndex(int boardRow, int boardCol) =>
@@ -1050,6 +1140,14 @@ namespace ChessInsight.UI.ViewModels
                 _     => $"{side} pobjeđuje"
             };
         }
+
+        private static readonly Brush BrScoreWhite  = new SolidColorBrush(Color.FromRgb(0xC8, 0xDC, 0xFC));  // cool blue-white
+        private static readonly Brush BrScoreBlack  = new SolidColorBrush(Color.FromRgb(0x70, 0x96, 0xC0));  // muted blue
+        private static readonly Brush BrScoreEqual  = new SolidColorBrush(Color.FromArgb(160, 0xC8, 0xDC, 0xFC)); // dim
+
+        private static Brush GetScoreLabelBrush(int cp) =>
+            cp >  150 ? BrScoreWhite :
+            cp < -150 ? BrScoreBlack : BrScoreEqual;
 
         // ── SVG figure ──────────────────────────────────────────
 

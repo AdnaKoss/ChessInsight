@@ -5,7 +5,7 @@
         Width="540" Height="400"
         MinWidth="420" MinHeight="320"
         WindowStartupLocation="CenterOwner"
-        Background="#141414"
+        Background="#08111F"
         ResizeMode="CanResize">
 
     <Grid Margin="16">
@@ -18,15 +18,15 @@
 
         <TextBlock Grid.Row="0"
                    Text="Zalijepite PGN tekst partije:"
-                   Foreground="#888780" FontSize="12"
+                   Foreground="#80D0DCF0" FontSize="12"
                    Margin="0,0,0,8"/>
 
         <Border Grid.Row="1"
                 BorderBrush="#26FFFFFF" BorderThickness="1"
-                CornerRadius="6" Background="#1C1C1C">
+                CornerRadius="6" Background="#102035">
             <TextBox x:Name="TxtPgn"
                      Background="Transparent"
-                     Foreground="#E8E8E8"
+                     Foreground="#D0DCF0"
                      BorderThickness="0"
                      Padding="10,8"
                      FontFamily="Consolas" FontSize="12"
@@ -34,7 +34,7 @@
                      AcceptsTab="False"
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto"
-                     CaretBrush="#E8E8E8"
+                     CaretBrush="#D0DCF0"
                      VerticalAlignment="Stretch"/>
         </Border>
 
