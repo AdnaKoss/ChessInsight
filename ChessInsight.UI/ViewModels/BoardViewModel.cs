@@ -18,6 +18,7 @@ namespace ChessInsight.UI.ViewModels
         // ── Engine ──────────────────────────────────────────────
         private readonly AlphaBeta _engine = new();
         private readonly MoveGenerator _generator = new();
+        private readonly OpeningBook _openingBook = new();
 
         // ── Stanje ─────────────────────────────────────────────
         private GameState _gameState = new();
@@ -36,6 +37,7 @@ namespace ChessInsight.UI.ViewModels
 
         [ObservableProperty] private bool _isFlipped = false;
         [ObservableProperty] private bool _isAnalyzing = false;
+        [ObservableProperty] private bool _isBookPosition = false;
         [ObservableProperty] private bool _isAutoAnalyzing = false;
         [ObservableProperty] private string _analyzeBtnText = "▶  KRENI ANALIZATOR";
         [ObservableProperty] private string _analyzingText = "";
@@ -44,27 +46,31 @@ namespace ChessInsight.UI.ViewModels
         private CancellationTokenSource? _analysisCts;
 
         // ── Panel — evaluacija ───────────────────────────────────
-        [ObservableProperty] private string _scoreText = "0.00";
-        [ObservableProperty] private string _scoreLabelText = "Ravnopravno";
+        [ObservableProperty] private string _scoreText = "";
+        [ObservableProperty] private string _scoreLabelText = "";
         [ObservableProperty] private string _gameStatusText = "Bijeli na potezu";
         [ObservableProperty] private Brush  _sideToMoveFill = Brushes.White;
 
         // ── Eval bar (bijeli % od dna, crni % od vrha) ──────────
-        [ObservableProperty] private double _evalBarWhitePct = 50.0;
-        [ObservableProperty] private double _evalBarBlackPct = 50.0;
+        [ObservableProperty] private double _evalBarWhiteRatio = 0.5;
 
         // ── Panel — top 3 poteza ────────────────────────────────
-        [ObservableProperty] private string _move1Text = "—";
-        [ObservableProperty] private string _move2Text = "—";
-        [ObservableProperty] private string _move3Text = "—";
+        [ObservableProperty] private string _move1Text = "";
+        [ObservableProperty] private string _move2Text = "";
+        [ObservableProperty] private string _move3Text = "";
         [ObservableProperty] private string _score1Text = "";
         [ObservableProperty] private string _score2Text = "";
         [ObservableProperty] private string _score3Text = "";
 
+        // ── Strelice poteza ─────────────────────────────────────
+        public record ArrowData(int FromIdx, int ToIdx, int Priority);
+        [ObservableProperty] private List<ArrowData> _moveArrows = new();
+        private List<ArrowData> _analysisArrows = new();
+
         // ── Panel — statistike ──────────────────────────────────
-        [ObservableProperty] private string _depthText = "—";
-        [ObservableProperty] private string _nodesText = "—";
-        [ObservableProperty] private string _timeText = "—";
+        [ObservableProperty] private string _depthText = "";
+        [ObservableProperty] private string _nodesText = "";
+        [ObservableProperty] private string _timeText = "";
 
         // ── Oznake redova i kolona (dinamične pri flipu) ─────────
         [ObservableProperty] private List<string> _rowLabels = new();
@@ -82,7 +88,7 @@ namespace ChessInsight.UI.ViewModels
         // ── Pristup trenutnom stanju (za editor pozicije) ───────
         public GameState CurrentGameState => _gameState;
 
-        private const int AnalysisDepth = 6;
+        private const int AnalysisDepth = 5;
 
         private bool IsGameOver =>
             _gameState.Status is GameStatus.Checkmate or GameStatus.Stalemate or GameStatus.Draw;
@@ -109,6 +115,7 @@ namespace ChessInsight.UI.ViewModels
             _stateHistory.Add(_gameState);
             UpdateLabels();
             RefreshBoard();
+            DisplayBookMovesInstant();
         }
 
         // ── Učitaj FEN poziciju ─────────────────────────────────
@@ -121,13 +128,15 @@ namespace ChessInsight.UI.ViewModels
             _selectedPieceMoves.Clear();
             ResetHistory();
 
-            ScoreText = "—"; ScoreLabelText = "—";
-            Move1Text = "—"; Score1Text = "";
-            Move2Text = "—"; Score2Text = "";
-            Move3Text = "—"; Score3Text = "";
-            DepthText = "—"; NodesText = "—"; TimeText = "—";
+            ScoreText = ""; ScoreLabelText = "";
+            Move1Text = ""; Score1Text = "";
+            Move2Text = ""; Score2Text = "";
+            Move3Text = ""; Score3Text = "";
+            DepthText = ""; NodesText = ""; TimeText = "";
+            EvalBarWhiteRatio = 0.5;
 
             RefreshBoard();
+            DisplayBookMovesInstant();
         }
 
         // ── Učitaj PGN partiju ──────────────────────────────────
@@ -170,11 +179,12 @@ namespace ChessInsight.UI.ViewModels
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
 
-            ScoreText = "—"; ScoreLabelText = "—";
-            Move1Text = "—"; Score1Text = "";
-            Move2Text = "—"; Score2Text = "";
-            Move3Text = "—"; Score3Text = "";
-            DepthText = "—"; NodesText = "—"; TimeText = "—";
+            ScoreText = ""; ScoreLabelText = "";
+            Move1Text = ""; Score1Text = "";
+            Move2Text = ""; Score2Text = "";
+            Move3Text = ""; Score3Text = "";
+            DepthText = ""; NodesText = ""; TimeText = "";
+            EvalBarWhiteRatio = 0.5;
 
             RebuildMoveHistory();
             RefreshBoard();
@@ -357,6 +367,20 @@ namespace ChessInsight.UI.ViewModels
             SideToMoveFill = _gameState.CurrentPlayer == PieceColor.White
                 ? new SolidColorBrush(Color.FromRgb(0xF0, 0xD9, 0xB5))
                 : new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
+
+            _analysisArrows = new();
+            MoveArrows = new();
+            IsBookPosition = _openingBook.HasBookMove(_gameState);
+
+            if (!IsAutoAnalyzing)
+            {
+                ScoreText = ""; ScoreLabelText = "";
+                Move1Text = ""; Score1Text = "";
+                Move2Text = ""; Score2Text = "";
+                Move3Text = ""; Score3Text = "";
+                DepthText = ""; NodesText = ""; TimeText = "";
+                EvalBarWhiteRatio = 0.5;
+            }
         }
 
         // ── Klik na polje ───────────────────────────────────────
@@ -380,11 +404,17 @@ namespace ChessInsight.UI.ViewModels
                     return;
                 }
 
+                int prevSelected = _selectedIndex.Value;
                 ClearHighlights();
                 _selectedIndex = null;
                 _selectedPieceMoves.Clear();
 
-                if (piece == null || piece.Color != _gameState.CurrentPlayer) return;
+                // Same piece again, empty square, or enemy piece → deselect, restore arrows
+                if (visualIndex == prevSelected || piece == null || piece.Color != _gameState.CurrentPlayer)
+                {
+                    MoveArrows = _analysisArrows;
+                    return;
+                }
             }
 
             if (piece != null && piece.Color == _gameState.CurrentPlayer)
@@ -434,13 +464,17 @@ namespace ChessInsight.UI.ViewModels
         {
             _selectedIndex = null;
             _selectedPieceMoves.Clear();
-            RefreshBoard();  // Vraća originalnu figuru i briše highlighte
+            var saved = _analysisArrows;
+            RefreshBoard();
+            _analysisArrows = saved;
+            MoveArrows = saved;
         }
 
         // ── Zajednički interna logika ────────────────────────────
 
         private void SelectPiece(int visualIndex, int row, int col)
         {
+            MoveArrows = new();
             _selectedIndex = visualIndex;
             Squares[visualIndex].Background = BrSelected;
 
@@ -495,6 +529,7 @@ namespace ChessInsight.UI.ViewModels
             _selectedPieceMoves.Clear();
             RebuildMoveHistory();
             RefreshBoard();
+            DisplayBookMovesInstant();
             UpdateCanNavigate();
 
             if (IsAutoAnalyzing && !IsGameOver)
@@ -502,6 +537,46 @@ namespace ChessInsight.UI.ViewModels
                 if (IsAnalyzing) _pendingAnalysis = true;
                 else _ = AnalyzeAsync();
             }
+        }
+
+        // ── Instant prikaz book poteza ──────────────────────────
+
+        private void DisplayBookMovesInstant()
+        {
+            if (!IsAutoAnalyzing || !IsBookPosition) return;
+
+            var entries    = _openingBook.GetBookEntries(_gameState);
+            var legalMoves = _generator.GetLegalMoves(_gameState);
+
+            Move1Text = "—"; Score1Text = "";
+            Move2Text = "—"; Score2Text = "";
+            Move3Text = "—"; Score3Text = "";
+
+            var arrows = new List<ArrowData>(3);
+            int shown = 0;
+            foreach (var (uci, _) in entries)
+            {
+                if (shown >= 3 || uci.Length < 4) continue;
+                var from = Square.FromAlgebraic(uci[..2]);
+                var to   = Square.FromAlgebraic(uci[2..4]);
+                var move = legalMoves.FirstOrDefault(m => m.From.Equals(from) && m.To.Equals(to));
+                if (move == null) continue;
+
+                string san = "📖 " + BuildSan(_gameState, move);
+                switch (shown)
+                {
+                    case 0: Move1Text = san; Score1Text = "knjiga"; break;
+                    case 1: Move2Text = san; Score2Text = "knjiga"; break;
+                    case 2: Move3Text = san; Score3Text = "knjiga"; break;
+                }
+                if (IsAutoAnalyzing)
+                    arrows.Add(new ArrowData(ToVisualIndex(move.From.Row, move.From.Column),
+                                             ToVisualIndex(move.To.Row,   move.To.Column), shown));
+                shown++;
+            }
+            _analysisArrows = arrows;
+            if (!_selectedIndex.HasValue)
+                MoveArrows = arrows;
         }
 
         // ── Auto-analizator — start/stop toggle ─────────────────
@@ -524,6 +599,14 @@ namespace ChessInsight.UI.ViewModels
             IsAutoAnalyzing = false;
             AnalyzeBtnText  = "▶  KRENI ANALIZATOR";
             _analysisCts?.Cancel();
+            ScoreText = ""; ScoreLabelText = "";
+            Move1Text = ""; Score1Text = "";
+            Move2Text = ""; Score2Text = "";
+            Move3Text = ""; Score3Text = "";
+            DepthText = ""; NodesText = ""; TimeText = "";
+            EvalBarWhiteRatio = 0.5;
+            _analysisArrows = new();
+            MoveArrows = new();
         }
 
         // ── Navigacija kroz historiju ───────────────────────────
@@ -537,6 +620,7 @@ namespace ChessInsight.UI.ViewModels
             _selectedPieceMoves.Clear();
             RebuildMoveHistory();
             RefreshBoard();
+            DisplayBookMovesInstant();
             UpdateCanNavigate();
             if (IsAutoAnalyzing && !IsGameOver) _ = AnalyzeAsync();
         }
@@ -550,6 +634,7 @@ namespace ChessInsight.UI.ViewModels
             _selectedPieceMoves.Clear();
             RebuildMoveHistory();
             RefreshBoard();
+            DisplayBookMovesInstant();
             UpdateCanNavigate();
             if (IsAutoAnalyzing && !IsGameOver) _ = AnalyzeAsync();
         }
@@ -681,6 +766,33 @@ namespace ChessInsight.UI.ViewModels
             _selectedIndex = null;
 
             var snapshot = _gameState;
+
+            // Book pozicija — kratka animacija + statička evaluacija za eval bar
+            if (IsBookPosition)
+            {
+                var snap = snapshot;
+                string[] dots = { "Analiziram.", "Analiziram..", "Analiziram..." };
+                for (int step = 0; step < 6 && !token.IsCancellationRequested && ReferenceEquals(snap, _gameState); step++)
+                {
+                    AnalyzingText = dots[step % 3];
+                    await Task.Delay(120, token).ContinueWith(_ => { });
+                }
+                if (!token.IsCancellationRequested && ReferenceEquals(snap, _gameState))
+                {
+                    int staticScore = new Evaluator().Evaluate(snap);
+                    ScoreText      = FormatScore(staticScore);
+                    ScoreLabelText = GetScoreLabel(staticScore);
+                    UpdateEvalBar(staticScore);
+                    DepthText = "knjiga";
+                    NodesText = "—";
+                    TimeText  = "< 1ms";
+                    DisplayBookMovesInstant();
+                }
+                IsAnalyzing   = false;
+                AnalyzingText = "";
+                return;
+            }
+
             var sw = Stopwatch.StartNew();
 
             var progress = new Progress<(int depth, List<SearchResult> results)>(update =>
@@ -760,8 +872,10 @@ namespace ChessInsight.UI.ViewModels
             {
                 var r = results[i];
                 if (r.BestMove == null) continue;
-                string mv = BuildSan(snapshot, r.BestMove);
-                string sc = FormatScore(r.Score);
+                string mv = r.IsBookMove
+                    ? "📖 " + BuildSan(snapshot, r.BestMove)
+                    : BuildSan(snapshot, r.BestMove);
+                string sc = r.IsBookMove ? "knjiga" : FormatScore(r.Score);
                 switch (i)
                 {
                     case 0: Move1Text = mv; Score1Text = sc; break;
@@ -769,6 +883,17 @@ namespace ChessInsight.UI.ViewModels
                     case 2: Move3Text = mv; Score3Text = sc; break;
                 }
             }
+            var arrows = new List<ArrowData>(3);
+            for (int i = 0; i < Math.Min(results.Count, 3); i++)
+            {
+                var m = results[i].BestMove;
+                if (m != null)
+                    arrows.Add(new ArrowData(ToVisualIndex(m.From.Row, m.From.Column),
+                                             ToVisualIndex(m.To.Row,   m.To.Column), i));
+            }
+            _analysisArrows = arrows;
+            if (!_selectedIndex.HasValue)
+                MoveArrows = arrows;
         }
 
         // ── Reset ───────────────────────────────────────────────
@@ -789,6 +914,7 @@ namespace ChessInsight.UI.ViewModels
             UpdateEvalBar(0);
 
             RefreshBoard();
+            DisplayBookMovesInstant();
         }
 
         // ── Okreni ploču ────────────────────────────────────────
@@ -894,12 +1020,11 @@ namespace ChessInsight.UI.ViewModels
 
         private void UpdateEvalBar(int cp)
         {
-            double white;
-            if      (cp >  9000) white = 100.0;
-            else if (cp < -9000) white = 0.0;
-            else                 white = 50.0 + 50.0 * Math.Tanh(cp / 600.0);
-            EvalBarWhitePct = white;
-            EvalBarBlackPct = 100.0 - white;
+            double ratio;
+            if      (cp >  9000) ratio = 1.0;
+            else if (cp < -9000) ratio = 0.0;
+            else                 ratio = 0.5 + 0.5 * Math.Max(-1.0, Math.Min(1.0, cp / 1000.0));
+            EvalBarWhiteRatio = ratio;
         }
 
         private static string FormatScore(int cp)

@@ -18,6 +18,7 @@ namespace ChessInsight.Engine
         public Move? BestMove { get; set; }
         public int Score { get; set; }
         public int NodesSearched { get; set; }
+        public bool IsBookMove { get; set; }
     }
 
     /// <summary>

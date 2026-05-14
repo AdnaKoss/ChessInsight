@@ -6,6 +6,7 @@
              PreviewMouseMove="Board_PreviewMouseMove"
              PreviewMouseLeftButtonUp="Board_PreviewMouseUp">
     <Border BorderBrush="#26FFFFFF" BorderThickness="1">
+        <Grid>
         <ItemsControl x:Name="BoardGrid"
                       ItemsSource="{Binding Squares}">
 
@@ -101,5 +102,7 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <Canvas x:Name="ArrowCanvas" IsHitTestVisible="False"/>
+        </Grid>
     </Border>
 </UserControl>

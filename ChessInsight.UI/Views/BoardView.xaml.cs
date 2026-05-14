@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using ChessInsight.UI.ViewModels;
 
 namespace ChessInsight.UI.Views
@@ -15,17 +17,102 @@ namespace ChessInsight.UI.Views
         private PieceDragAdorner? _adorner;
 
         private const double DragThreshold = 6.0;
+        private const double BoardSize     = 500.0;
+        private const double SquareSize    = BoardSize / 8;
 
         public BoardView()
         {
             InitializeComponent();
+            DataContextChanged += OnDataContextChanged;
+        }
+
+        // ── DataContext → subscribe to ViewModel events ──────────
+
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.OldValue is BoardViewModel oldVm)
+                oldVm.PropertyChanged -= OnViewModelPropertyChanged;
+            if (e.NewValue is BoardViewModel newVm)
+            {
+                newVm.PropertyChanged += OnViewModelPropertyChanged;
+                RefreshArrows(); // draw arrows already set before DataContext was assigned
+            }
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BoardViewModel.MoveArrows))
+                RefreshArrows();
+        }
+
+        // ── Arrow drawing ────────────────────────────────────────
+
+        private void RefreshArrows()
+        {
+            ArrowCanvas.Children.Clear();
+            if (DataContext is not BoardViewModel vm) return;
+
+            foreach (var arrow in vm.MoveArrows)
+            {
+                int fc = arrow.FromIdx % 8, fr = arrow.FromIdx / 8;
+                int tc = arrow.ToIdx   % 8, tr = arrow.ToIdx   / 8;
+
+                var from = new Point(fc * SquareSize + SquareSize / 2,
+                                     fr * SquareSize + SquareSize / 2);
+                var to   = new Point(tc * SquareSize + SquareSize / 2,
+                                     tr * SquareSize + SquareSize / 2);
+
+                var (color, strokeW) = arrow.Priority switch
+                {
+                    0 => (Color.FromArgb(185, 46, 204, 113),  17.0),  // zelena — najbolji potez
+                    1 => (Color.FromArgb(170, 133, 183, 235),  13.0),  // plava — drugi
+                    _ => (Color.FromArgb(150, 136, 135, 128),   9.0)   // siva — treći
+                };
+
+                DrawArrow(ArrowCanvas, from, to, new SolidColorBrush(color), strokeW);
+            }
+        }
+
+        private static void DrawArrow(Canvas canvas, Point from, Point to, Brush brush, double shaftW)
+        {
+            var dir = to - from;
+            double len = dir.Length;
+            if (len < 2) return;
+            dir.Normalize();
+            var perp = new Vector(-dir.Y, dir.X);
+
+            double headLen = shaftW * 1.8;
+            double headWid = shaftW * 1.9;
+            double shaftHW = shaftW / 2.0;
+
+            Point shaftStart = from + dir * (SquareSize * 0.20);
+            Point arrowBase  = to   - dir * headLen;
+
+            var geo = new StreamGeometry();
+            using (var ctx = geo.Open())
+            {
+                ctx.BeginFigure(shaftStart + perp * shaftHW, isFilled: true, isClosed: true);
+                ctx.LineTo(arrowBase  + perp * shaftHW,       isStroked: false, isSmoothJoin: true);
+                ctx.LineTo(arrowBase  + perp * (headWid / 2), isStroked: false, isSmoothJoin: false);
+                ctx.LineTo(to,                                 isStroked: false, isSmoothJoin: false);
+                ctx.LineTo(arrowBase  - perp * (headWid / 2), isStroked: false, isSmoothJoin: false);
+                ctx.LineTo(arrowBase  - perp * shaftHW,       isStroked: false, isSmoothJoin: true);
+                ctx.LineTo(shaftStart - perp * shaftHW,       isStroked: false, isSmoothJoin: true);
+            }
+            geo.Freeze();
+
+            canvas.Children.Add(new System.Windows.Shapes.Path
+            {
+                Data             = geo,
+                Fill             = brush,
+                IsHitTestVisible = false,
+            });
         }
 
         // ── Klik (postojeća logika) ──────────────────────────────
 
         private void Square_Click(object sender, RoutedEventArgs e)
         {
-            // Ne obrađuj klik ako je akcija bila drag
             if (_isDragging) return;
             if (sender is Button btn && btn.Tag is int index)
                 (DataContext as BoardViewModel)?.OnSquareClicked(index);
@@ -56,7 +143,7 @@ namespace ChessInsight.UI.Views
                 if (vm == null) return;
 
                 _isDragging = true;
-                Mouse.Capture(this);        // preuzmi miša da evente primamo i van grida
+                Mouse.Capture(this);
                 vm.OnDragStart(_dragSourceIndex);
                 ShowAdorner(_dragSourceIndex, pos, vm);
             }
@@ -89,7 +176,7 @@ namespace ChessInsight.UI.Views
             else
                 vm?.CancelDrag();
 
-            e.Handled    = true;   // spriječi Button.Click na odredišnom polju
+            e.Handled    = true;
             _isDragging  = false;
             _dragSourceIndex = -1;
         }

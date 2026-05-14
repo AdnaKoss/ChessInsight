@@ -57,21 +57,19 @@
                     Margin="6,16,6,16"
                     CornerRadius="4"
                     ClipToBounds="True"
-                    Background="#2C2C2C">
+                    Background="#1C1C1C">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="{Binding EvalBarBlackPct,
-                                                Converter={StaticResource ToGridLength}}"/>
-                        <RowDefinition Height="{Binding EvalBarWhitePct,
-                                                Converter={StaticResource ToGridLength}}"/>
-                    </Grid.RowDefinitions>
-                    <!-- Crna polovina (vrh) -->
-                    <Rectangle Grid.Row="0" Fill="#2C2C2C"/>
-                    <!-- Bijela polovina (dno) -->
-                    <Rectangle Grid.Row="1" Fill="#D8D8D8"/>
-                    <!-- Linija razdvajanja -->
-                    <Rectangle Height="1" VerticalAlignment="Center"
-                               Fill="#50FFFFFF" IsHitTestVisible="False"/>
+                    <!-- Bijela sekcija raste od dna — ScaleTransform je pouzdan u WPF -->
+                    <Rectangle Fill="#D9D9D9"
+                               VerticalAlignment="Stretch"
+                               RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform ScaleY="{Binding EvalBarWhiteRatio}"/>
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <!-- Linija razdvajanja — uvijek vidljiva -->
+                    <Rectangle Height="3" VerticalAlignment="Center"
+                               Fill="#888888" IsHitTestVisible="False"/>
                 </Grid>
             </Border>
 
@@ -167,6 +165,12 @@
                             <TextBlock Text="{Binding GameStatusText}"
                                        Foreground="{StaticResource TextSecondary}"
                                        FontSize="12"/>
+                            <TextBlock Text="📖  Knjiga otvaranja"
+                                       Foreground="#C8A84B"
+                                       FontSize="11"
+                                       Margin="0,5,0,0"
+                                       Visibility="{Binding IsBookPosition,
+                                           Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                     </Border>
 

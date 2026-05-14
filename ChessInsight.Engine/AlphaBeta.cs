@@ -12,9 +12,10 @@ namespace ChessInsight.Engine
     /// </summary>
     public class AlphaBeta
     {
-        private readonly Evaluator          _evaluator  = new();
-        private readonly MoveGenerator      _generator  = new();
-        private readonly TranspositionTable _tt         = new();
+        private readonly Evaluator          _evaluator   = new();
+        private readonly MoveGenerator      _generator   = new();
+        private readonly TranspositionTable _tt          = new();
+        private readonly OpeningBook        _openingBook = new();
 
         private const int MaxPly    = 64;
         private const int NullMoveR = 2; // null-move redukcija dubine
@@ -34,6 +35,19 @@ namespace ChessInsight.Engine
             CancellationToken cancellationToken = default,
             Dictionary<ulong, int>? gameHistory = null)
         {
+            // Pripremi book poteze jednom — sortirane po težini, verifikovane kao legalne
+            var bookEntries = _openingBook.GetBookEntries(state);
+            var legalRoot   = _generator.GetLegalMoves(state);
+            var bookMoves   = new List<(Move move, int weight)>(bookEntries.Count);
+            foreach (var (uci, weight) in bookEntries.OrderByDescending(e => e.weight))
+            {
+                if (uci.Length < 4) continue;
+                var from = Square.FromAlgebraic(uci[..2]);
+                var to   = Square.FromAlgebraic(uci[2..4]);
+                var m    = legalRoot.FirstOrDefault(x => x.From.Equals(from) && x.To.Equals(to));
+                if (m != null) bookMoves.Add((m, weight));
+            }
+
             _tt.Clear();
             Array.Clear(_killers, 0, _killers.Length);
 
@@ -48,18 +62,16 @@ namespace ChessInsight.Engine
 
                     if (d <= 2)
                     {
-                        // Prve dvije dubine — puni prozor (bez aspiration windows)
                         current = FindTopMoves(state, d, count,
                                                int.MinValue, int.MaxValue,
                                                cancellationToken, gameHistory);
                     }
                     else
                     {
-                        // Aspiration windows — uski prozor oko prethodnog skora
                         int delta = 50;
                         int lo = prevScore - delta;
                         int hi = prevScore + delta;
-                        current = last; // fallback ako retry ne uspije
+                        current = last;
 
                         while (true)
                         {
@@ -72,19 +84,17 @@ namespace ChessInsight.Engine
 
                             if (s <= lo)
                             {
-                                // Fail-low — širi prozor prema dolje
                                 delta *= 4;
                                 lo     = prevScore - delta;
                                 if (lo < -90000) { lo = int.MinValue; hi = int.MaxValue; break; }
                             }
                             else if (s >= hi)
                             {
-                                // Fail-high — širi prozor prema gore
                                 delta *= 4;
                                 hi     = prevScore + delta;
                                 if (hi > 90000)  { lo = int.MinValue; hi = int.MaxValue; break; }
                             }
-                            else break; // unutar prozora — gotovo
+                            else break;
                         }
                     }
 
@@ -93,6 +103,26 @@ namespace ChessInsight.Engine
                         prevScore = current[0].Score;
                         last      = current;
                     }
+
+                    // Umetni SVE book poteze kao top rezultate (sortirano po težini)
+                    if (bookMoves.Count > 0)
+                    {
+                        int baseScore = last.Count > 0 ? last[0].Score : 0;
+                        int baseNodes = last.Count > 0 ? last[0].NodesSearched : 0;
+
+                        var bookSet = new HashSet<Move>(bookMoves.Select(b => b.move));
+                        var nonBook = last.Where(r => r.BestMove != null && !bookSet.Contains(r.BestMove!)).ToList();
+
+                        last.Clear();
+                        foreach (var (m, _) in bookMoves.Take(count))
+                            last.Add(new SearchResult { BestMove = m, Score = baseScore, NodesSearched = baseNodes, IsBookMove = true });
+                        foreach (var r in nonBook)
+                        {
+                            if (last.Count >= count) break;
+                            last.Add(r);
+                        }
+                    }
+
                     progress?.Report((d, last));
                 }
                 catch (OperationCanceledException) { break; }
@@ -100,6 +130,7 @@ namespace ChessInsight.Engine
 
             return last;
         }
+
 
         public List<SearchResult> FindTopMoves(GameState state, int depth, int count,
             int rootAlpha, int rootBeta,
@@ -128,11 +159,10 @@ namespace ChessInsight.Engine
             foreach (var move in OrderMoves(legalMoves, state.Board, ttMove, null, 0))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var next     = state.ApplyMove(move);
-                var histCopy = new Dictionary<ulong, int>(history);
-                int score    = Search(next, depth - 1, !isMax,
-                                      rootAlpha, rootBeta,
-                                      cancellationToken, histCopy, 1);
+                var next  = state.ApplyMove(move);
+                int score = Search(next, depth - 1, !isMax,
+                                   rootAlpha, rootBeta,
+                                   cancellationToken, history, 1);
                 scored[idx++] = (move, score);
             }
 
@@ -156,6 +186,10 @@ namespace ChessInsight.Engine
             CancellationToken cancellationToken = default,
             Dictionary<ulong, int>? gameHistory = null)
         {
+            var bookMove = _openingBook.GetBookMove(state);
+            if (bookMove != null)
+                return new SearchResult { BestMove = bookMove, Score = 0, NodesSearched = 0, IsBookMove = true };
+
             _nodesSearched = 0;
             Array.Clear(_killers, 0, _killers.Length);
 
@@ -239,23 +273,20 @@ namespace ChessInsight.Engine
             // Isključeno: pri šahu, u endgameu (zugzwang) i na ply 0 (root).
             if (!inCheck && depth >= 3 && ply > 0 && !IsEndgame(state))
             {
-                int R           = depth > 6 ? 3 : NullMoveR; // adaptivna redukcija
-                var nullState   = state.ApplyNullMove();
-                var nullHistory = new Dictionary<ulong, int>(history);
+                int R         = depth > 6 ? 3 : NullMoveR;
+                var nullState = state.ApplyNullMove();
 
                 if (isMax)
                 {
-                    // Bijeli preskače — crni dobija slobodan potez
                     int nullScore = Search(nullState, depth - 1 - R, false,
-                                          beta - 1, beta, cancellationToken, nullHistory, ply + 1);
-                    if (nullScore >= beta) return beta; // beta cutoff
+                                          beta - 1, beta, cancellationToken, history, ply + 1);
+                    if (nullScore >= beta) return beta;
                 }
                 else
                 {
-                    // Crni preskače — bijeli dobija slobodan potez
                     int nullScore = Search(nullState, depth - 1 - R, true,
-                                          alpha, alpha + 1, cancellationToken, nullHistory, ply + 1);
-                    if (nullScore <= alpha) return alpha; // alpha cutoff
+                                          alpha, alpha + 1, cancellationToken, history, ply + 1);
+                    if (nullScore <= alpha) return alpha;
                 }
             }
 
