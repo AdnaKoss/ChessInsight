@@ -364,3 +364,7 @@ FodyWeavers.xsd
 
 # Claude Code CLI settings (tool configuration, not part of the app)
 .claude/
+
+# Thesis document (local only, not for version control)
+DiplomskiRad_AdnaKoss.docx
+generate_thesis.py
