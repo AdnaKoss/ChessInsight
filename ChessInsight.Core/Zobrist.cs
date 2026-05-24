@@ -63,6 +63,16 @@ namespace ChessInsight.Core
             return h;
         }
 
+        // ── Javni ključevi za inkrementalno hashiranje ───────────
+        // Koriste se u GameState.ApplyMove za O(1) ažuriranje hasha.
+
+        public static ulong PieceKey(PieceColor color, PieceType type, int row, int col) =>
+            Pieces[color == PieceColor.White ? 0 : 1, TypeIndex(type), row * 8 + col];
+
+        public static ulong GetBlackToMoveKey()    => BlackToMove;
+        public static ulong GetCastlingKey(int idx) => Castling[idx];
+        public static ulong GetEnPassantKey(int file) => EnPassant[file];
+
         private static int TypeIndex(PieceType t) => t switch
         {
             PieceType.King   => 0,

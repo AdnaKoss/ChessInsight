@@ -31,17 +31,25 @@ namespace ChessInsight.Core.Models
         // Ukupan broj poteza u igri
         public int FullMoveNumber { get; private set; } = 1;
 
+        /// <summary>
+        /// Zobristov hash trenutne pozicije — keširan i inkrementalno ažuriran
+        /// u ApplyMove kako bi Search() radio u O(1) umjesto O(64) po čvoru.
+        /// </summary>
+        public ulong ZobristHash { get; private set; }
+
         public GameState()
         {
             Board = new Board();
             CurrentPlayer = PieceColor.White;
             Status = GameStatus.Active;
             Board.SetupStartingPosition();
+            ZobristHash = Zobrist.Compute(this);
         }
 
-        // Konstruktor za kloniranje
+        // Konstruktor za kloniranje i ApplyMove — prima preračunati hash
         private GameState(Board board, PieceColor currentPlayer, GameStatus status,
-            bool wCK, bool wCQ, bool bCK, bool bCQ, int halfMove, int fullMove)
+            bool wCK, bool wCQ, bool bCK, bool bCQ, int halfMove, int fullMove,
+            ulong? hash = null)
         {
             Board = board;
             CurrentPlayer = currentPlayer;
@@ -52,6 +60,8 @@ namespace ChessInsight.Core.Models
             BlackCanCastleQueenside = bCQ;
             HalfMoveClock = halfMove;
             FullMoveNumber = fullMove;
+            // Ako hash nije proslijeđen (npr. FromFen), računaj od nule
+            ZobristHash = hash ?? Zobrist.Compute(this);
         }
 
         // ── Detekcija šaha ───────────────────────────────────────
@@ -87,13 +97,36 @@ namespace ChessInsight.Core.Models
         public GameState ApplyMove(Move move)
         {
             var newBoard = Board.Clone();
-            var piece = newBoard.GetPiece(move.From)!;
+            var piece    = newBoard.GetPiece(move.From)!;
 
-            bool isCapture = move.Type == MoveType.Capture ||
-                             move.Type == MoveType.EnPassant;
+            bool isCapture  = move.Type == MoveType.Capture ||
+                              move.Type == MoveType.EnPassant;
             bool isPawnMove = piece.Type == PieceType.Pawn;
 
             Square? newEnPassant = null;
+
+            // ── Inkrementalni Zobrist hash ───────────────────────
+            // Svi XOR-ovi se rade na originalnoj tabli PRIJE modifikacije newBoard.
+            ulong newHash = ZobristHash;
+
+            // 1. Promjena strane na potezu
+            newHash ^= Zobrist.GetBlackToMoveKey();
+
+            // 2. Ukloni staro en passant polje iz hasha
+            if (Board.EnPassantSquare != null)
+                newHash ^= Zobrist.GetEnPassantKey(Board.EnPassantSquare.Column);
+
+            // 3. Ukloni figure s polaznog i (eventualno) ciljnog polja
+            newHash ^= Zobrist.PieceKey(piece.Color, piece.Type, move.From.Row, move.From.Column);
+
+            // Hvatanje na ciljnom polju (osim en passant — tamo je drugačija logika)
+            if (move.Type != MoveType.EnPassant)
+            {
+                var capturedAtTo = Board.GetPiece(move.To);
+                if (capturedAtTo != null)
+                    newHash ^= Zobrist.PieceKey(capturedAtTo.Color, capturedAtTo.Type,
+                                                move.To.Row, move.To.Column);
+            }
 
             // ── Normalan potez ili hvatanje ──────────────────────
             newBoard.RemovePiece(move.From);
@@ -103,46 +136,67 @@ namespace ChessInsight.Core.Models
             switch (move.Type)
             {
                 case MoveType.EnPassant:
-                    // Ukloni uhvaćenog pješaka koji je pored, ne na To polju
-                    int epRow = move.From.Row;
-                    newBoard.RemovePiece(new Square(epRow, move.To.Column));
+                {
+                    int epRow    = move.From.Row;
+                    var epSquare = new Square(epRow, move.To.Column);
+                    var epPawn   = Board.GetPiece(epSquare)!;
+                    newHash ^= Zobrist.PieceKey(epPawn.Color, epPawn.Type, epRow, move.To.Column);
+                    newBoard.RemovePiece(epSquare);
                     break;
-
+                }
                 case MoveType.CastleKingside:
-                    // Pomjeri top s h1/h8 na f1/f8
-                    int ckRow = move.From.Row;
-                    var ckRook = newBoard.RemovePiece(new Square(ckRow, 7));
-                    newBoard.SetPiece(new Square(ckRow, 5), ckRook);
+                {
+                    int row = move.From.Row;
+                    // Top prelazi s h→f
+                    newHash ^= Zobrist.PieceKey(piece.Color, PieceType.Rook, row, 7);
+                    newHash ^= Zobrist.PieceKey(piece.Color, PieceType.Rook, row, 5);
+                    var ckRook = newBoard.RemovePiece(new Square(row, 7));
+                    newBoard.SetPiece(new Square(row, 5), ckRook);
                     break;
-
+                }
                 case MoveType.CastleQueenside:
-                    // Pomjeri top s a1/a8 na d1/d8
-                    int cqRow = move.From.Row;
-                    var cqRook = newBoard.RemovePiece(new Square(cqRow, 0));
-                    newBoard.SetPiece(new Square(cqRow, 3), cqRook);
+                {
+                    int row = move.From.Row;
+                    // Top prelazi s a→d
+                    newHash ^= Zobrist.PieceKey(piece.Color, PieceType.Rook, row, 0);
+                    newHash ^= Zobrist.PieceKey(piece.Color, PieceType.Rook, row, 3);
+                    var cqRook = newBoard.RemovePiece(new Square(row, 0));
+                    newBoard.SetPiece(new Square(row, 3), cqRook);
                     break;
-
+                }
                 case MoveType.PawnPromotion:
-                    // Zamijeni pješaka s izabranom figurom
+                {
+                    PieceType promType = move.PromotionPiece ?? PieceType.Queen;
                     newBoard.RemovePiece(move.To);
-                    Piece promoted = move.PromotionPiece switch
+                    Piece promoted = promType switch
                     {
-                        PieceType.Queen => new Queen(piece.Color, move.To),
-                        PieceType.Rook => new Rook(piece.Color, move.To),
+                        PieceType.Queen  => new Queen (piece.Color, move.To),
+                        PieceType.Rook   => new Rook  (piece.Color, move.To),
                         PieceType.Bishop => new Bishop(piece.Color, move.To),
                         PieceType.Knight => new Knight(piece.Color, move.To),
-                        _ => new Queen(piece.Color, move.To)
+                        _                => new Queen (piece.Color, move.To)
                     };
                     newBoard.SetPiece(move.To, promoted);
+                    // Hash: pješak je već uklonjen s From, sada dodaj promovanu figuru
+                    newHash ^= Zobrist.PieceKey(piece.Color, promType, move.To.Row, move.To.Column);
                     break;
-
+                }
                 case MoveType.Normal when isPawnMove &&
                      Math.Abs(move.To.Row - move.From.Row) == 2:
-                    // Postavi en passant polje iza pješaka
+                {
                     int epDirection = piece.Color == PieceColor.White ? -1 : +1;
                     newEnPassant = new Square(move.To.Row + epDirection, move.To.Column);
                     break;
+                }
             }
+
+            // Za sve poteze osim promocije — dodaj figuru na ciljno polje
+            if (move.Type != MoveType.PawnPromotion)
+                newHash ^= Zobrist.PieceKey(piece.Color, piece.Type, move.To.Row, move.To.Column);
+
+            // 4. Novo en passant polje
+            if (newEnPassant != null)
+                newHash ^= Zobrist.GetEnPassantKey(newEnPassant.Column);
 
             newBoard.EnPassantSquare = newEnPassant;
 
@@ -165,18 +219,27 @@ namespace ChessInsight.Core.Models
                 if (move.From.Equals(new Square(7, 7))) newBCK = false;
             }
 
+            // 5. Ažuriranje rokadnih prava u hashu
+            // XOR-aj stara prava i nova prava — razlika je automatski uključena
+            if (WhiteCanCastleKingside)  newHash ^= Zobrist.GetCastlingKey(0);
+            if (WhiteCanCastleQueenside) newHash ^= Zobrist.GetCastlingKey(1);
+            if (BlackCanCastleKingside)  newHash ^= Zobrist.GetCastlingKey(2);
+            if (BlackCanCastleQueenside) newHash ^= Zobrist.GetCastlingKey(3);
+            if (newWCK) newHash ^= Zobrist.GetCastlingKey(0);
+            if (newWCQ) newHash ^= Zobrist.GetCastlingKey(1);
+            if (newBCK) newHash ^= Zobrist.GetCastlingKey(2);
+            if (newBCQ) newHash ^= Zobrist.GetCastlingKey(3);
+
             // ── Sat polupoteza i broj poteza ─────────────────────
             int newHalfMove = (isCapture || isPawnMove) ? 0 : HalfMoveClock + 1;
             int newFullMove = CurrentPlayer == PieceColor.Black
                 ? FullMoveNumber + 1
                 : FullMoveNumber;
 
-            var newState = new GameState(
+            return new GameState(
                 newBoard, Opponent(CurrentPlayer), GameStatus.Active,
-                newWCK, newWCQ, newBCK, newBCQ, newHalfMove, newFullMove
+                newWCK, newWCQ, newBCK, newBCQ, newHalfMove, newFullMove, newHash
             );
-
-            return newState;
         }
 
         // ── Ažuriranje statusa ───────────────────────────────────
@@ -205,7 +268,7 @@ namespace ChessInsight.Core.Models
             Board.Clone(), CurrentPlayer, Status,
             WhiteCanCastleKingside, WhiteCanCastleQueenside,
             BlackCanCastleKingside, BlackCanCastleQueenside,
-            HalfMoveClock, FullMoveNumber
+            HalfMoveClock, FullMoveNumber, ZobristHash
         );
         /// <summary>
         /// Konstruktor za custom poziciju — koristi se u testovima.
@@ -215,6 +278,7 @@ namespace ChessInsight.Core.Models
             Board = board;
             CurrentPlayer = currentPlayer;
             Status = GameStatus.Active;
+            ZobristHash = Zobrist.Compute(this);
         }
         // ── Factory za FEN ───────────────────────────────────────
 
@@ -236,10 +300,16 @@ namespace ChessInsight.Core.Models
         {
             var board = Board.Clone();
             board.EnPassantSquare = null;
+
+            ulong newHash = ZobristHash;
+            newHash ^= Zobrist.GetBlackToMoveKey();
+            if (Board.EnPassantSquare != null)
+                newHash ^= Zobrist.GetEnPassantKey(Board.EnPassantSquare.Column);
+
             return new GameState(board, Opponent(CurrentPlayer), GameStatus.Active,
                 WhiteCanCastleKingside, WhiteCanCastleQueenside,
                 BlackCanCastleKingside, BlackCanCastleQueenside,
-                HalfMoveClock, FullMoveNumber);
+                HalfMoveClock, FullMoveNumber, newHash);
         }
 
         // ── FEN export ───────────────────────────────────────────

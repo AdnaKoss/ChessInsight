@@ -29,13 +29,17 @@ namespace ChessInsight.Core
                 ? PieceColor.Black
                 : PieceColor.White;
 
-            bool wCK = true, wCQ = true, bCK = true, bCQ = true;
-            if (parts.Length > 2 && parts[2] != "-")
+            bool wCK, wCQ, bCK, bCQ;
+            if (parts.Length > 2)
             {
                 wCK = parts[2].Contains('K');
                 wCQ = parts[2].Contains('Q');
                 bCK = parts[2].Contains('k');
                 bCQ = parts[2].Contains('q');
+            }
+            else
+            {
+                wCK = wCQ = bCK = bCQ = true;
             }
 
             if (parts.Length > 3 && parts[3] != "-")

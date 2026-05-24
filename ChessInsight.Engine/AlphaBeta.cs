@@ -143,7 +143,7 @@ namespace ChessInsight.Engine
                 ? new Dictionary<ulong, int>(gameHistory)
                 : new Dictionary<ulong, int>();
 
-            ulong rootHash = Zobrist.Compute(state);
+            ulong rootHash = state.ZobristHash;
             history.TryGetValue(rootHash, out int rootCount);
             history[rootHash] = rootCount + 1;
 
@@ -197,7 +197,7 @@ namespace ChessInsight.Engine
                 ? new Dictionary<ulong, int>(gameHistory)
                 : new Dictionary<ulong, int>();
 
-            ulong rootHash = Zobrist.Compute(state);
+            ulong rootHash = state.ZobristHash;
             history.TryGetValue(rootHash, out int rootCount);
             history[rootHash] = rootCount + 1;
 
@@ -244,7 +244,7 @@ namespace ChessInsight.Engine
             cancellationToken.ThrowIfCancellationRequested();
 
             // Detekcija trostrukog ponavljanja
-            ulong hash = Zobrist.Compute(state);
+            ulong hash = state.ZobristHash;
             history.TryGetValue(hash, out int repCount);
             if (repCount >= 2) return 0;
 
